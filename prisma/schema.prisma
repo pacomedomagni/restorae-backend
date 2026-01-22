@@ -1,0 +1,599 @@
+// Prisma Schema for Restorae Backend
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum Role {
+  USER
+  ADMIN
+  ANALYST
+  SUPPORT
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  LIFETIME
+}
+
+enum ContentType {
+  BREATHING
+  GROUNDING
+  RESET
+  FOCUS
+  SOS
+  SITUATIONAL
+  PROMPT
+  MORNING_RITUAL
+  EVENING_RITUAL
+  AMBIENT_SOUND
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MoodType {
+  ENERGIZED
+  CALM
+  ANXIOUS
+  LOW
+  GOOD
+  TOUGH
+}
+
+enum MoodContext {
+  MORNING
+  MIDDAY
+  EVENING
+  MANUAL
+}
+
+enum TimeOfDay {
+  MORNING
+  MIDDAY
+  EVENING
+  ANYTIME
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum LockMethod {
+  BIOMETRIC
+  PIN
+  BOTH
+  NONE
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum FeedbackType {
+  GENERAL
+  BUG
+  FEATURE_REQUEST
+  ABUSE_REPORT
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// =============================================================================
+// USER & AUTH
+// =============================================================================
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String?   @unique
+  passwordHash        String?
+  name                String?
+  avatarUrl           String?
+  timezone            String    @default("UTC")
+  locale              String    @default("en")
+  role                Role      @default(USER)
+  isActive            Boolean   @default(true)
+  onboardingCompleted Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  // Relations
+  devices          Device[]
+  preferences      Preference?
+  subscription     Subscription?
+  moodEntries      MoodEntry[]
+  journalEntries   JournalEntry[]
+  customRituals    CustomRitual[]
+  ritualCompletions RitualCompletion[]
+  reminders        Reminder[]
+  weeklyGoals      WeeklyGoal[]
+  feedbacks        Feedback[]
+  auditLogs        AuditLog[]        @relation("UserAuditLogs")
+  adminAuditLogs   AuditLog[]        @relation("AdminAuditLogs")
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Device {
+  id              String   @id @default(cuid())
+  userId          String
+  deviceId        String   @unique
+  platform        String   // ios, android
+  osVersion       String?
+  appVersion      String?
+  pushToken       String?
+  lastActiveAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([pushToken])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  deviceId     String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([refreshToken])
+}
+
+// =============================================================================
+// PREFERENCES
+// =============================================================================
+
+model Preference {
+  id                  String     @id @default(cuid())
+  userId              String     @unique
+  theme               String     @default("system") // light, dark, system
+  soundsEnabled       Boolean    @default(true)
+  hapticsEnabled      Boolean    @default(true)
+  lockMethod          LockMethod @default(NONE)
+  lockOnBackground    Boolean    @default(true)
+  lockTimeout         Int        @default(0) // seconds, 0 = immediate
+  quietHoursEnabled   Boolean    @default(false)
+  quietHoursStart     String?    // HH:mm
+  quietHoursEnd       String?    // HH:mm
+  updatedAt           DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =============================================================================
+// SUBSCRIPTIONS
+// =============================================================================
+
+model Subscription {
+  id                String           @id @default(cuid())
+  userId            String           @unique
+  tier              SubscriptionTier @default(FREE)
+  isTrialing        Boolean          @default(false)
+  trialStartedAt    DateTime?
+  trialEndsAt       DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelledAt       DateTime?
+  revenuecatId      String?          @unique
+  platform          String?          // ios, android, web
+  productId         String?
+  receiptData       Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entitlements Entitlement[]
+
+  @@index([revenuecatId])
+}
+
+model Entitlement {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  featureId      String
+  grantedAt      DateTime @default(now())
+  expiresAt      DateTime?
+  source         String   // subscription, promo, admin
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, featureId])
+  @@index([featureId])
+}
+
+// =============================================================================
+// CONTENT LIBRARY
+// =============================================================================
+
+model ContentItem {
+  id          String        @id @default(cuid())
+  type        ContentType
+  slug        String        @unique
+  name        String
+  description String
+  data        Json          // Flexible schema per content type
+  category    String?
+  tags        String[]
+  bestFor     String?
+  duration    String?
+  icon        String?
+  isPremium   Boolean       @default(false)
+  order       Int           @default(0)
+  status      ContentStatus @default(DRAFT)
+  version     Int           @default(1)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  publishedAt DateTime?
+
+  locales     ContentLocale[]
+  audioFile   AudioFile?      @relation(fields: [audioFileId], references: [id])
+  audioFileId String?
+
+  @@index([type])
+  @@index([status])
+  @@index([isPremium])
+  @@index([slug])
+}
+
+model ContentLocale {
+  id            String   @id @default(cuid())
+  contentItemId String
+  locale        String   // en, es, fr, etc.
+  name          String
+  description   String
+  data          Json?    // Localized dynamic fields
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([contentItemId, locale])
+}
+
+model AudioFile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  url         String
+  duration    Int?     // seconds
+  fileSize    Int?     // bytes
+  mimeType    String?
+  uploadedBy  String?
+  createdAt   DateTime @default(now())
+
+  contentItems ContentItem[]
+}
+
+// =============================================================================
+// MOOD TRACKING
+// =============================================================================
+
+model MoodEntry {
+  id        String      @id @default(cuid())
+  userId    String
+  mood      MoodType
+  note      String?
+  context   MoodContext @default(MANUAL)
+  factors   String[]    // Why user feels this way
+  timestamp DateTime    @default(now())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journalEntries JournalEntry[]
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([mood])
+}
+
+model WeeklyGoal {
+  id              String   @id @default(cuid())
+  userId          String
+  targetDays      Int      @default(7)
+  completedDays   Int      @default(0)
+  weekStart       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStart])
+  @@index([userId])
+}
+
+// =============================================================================
+// JOURNALING
+// =============================================================================
+
+model JournalEntry {
+  id           String    @id @default(cuid())
+  userId       String
+  title        String?
+  content      String    // May be encrypted
+  isEncrypted  Boolean   @default(false)
+  isLocked     Boolean   @default(false) // Requires biometric
+  promptId     String?
+  moodEntryId  String?
+  tags         String[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moodEntry MoodEntry? @relation(fields: [moodEntryId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// =============================================================================
+// RITUALS
+// =============================================================================
+
+model CustomRitual {
+  id              String      @id @default(cuid())
+  userId          String
+  title           String
+  description     String?
+  timeOfDay       TimeOfDay   @default(ANYTIME)
+  days            DayOfWeek[]
+  reminderEnabled Boolean     @default(false)
+  reminderTime    String?     // HH:mm
+  isArchived      Boolean     @default(false)
+  isFavorite      Boolean     @default(false)
+  completedCount  Int         @default(0)
+  lastCompletedAt DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps       RitualStep[]
+  completions RitualCompletion[]
+
+  @@index([userId])
+  @@index([isArchived])
+}
+
+model RitualStep {
+  id          String @id @default(cuid())
+  ritualId    String
+  title       String
+  description String?
+  duration    Int    // seconds
+  order       Int
+
+  ritual CustomRitual @relation(fields: [ritualId], references: [id], onDelete: Cascade)
+
+  @@index([ritualId])
+}
+
+model RitualCompletion {
+  id             String   @id @default(cuid())
+  userId         String
+  ritualId       String
+  duration       Int      // actual seconds
+  completedSteps Int
+  totalSteps     Int
+  mood           String?  // great, good, okay, tired
+  notes          String?
+  completedAt    DateTime @default(now())
+
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ritual CustomRitual @relation(fields: [ritualId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([ritualId])
+  @@index([completedAt])
+}
+
+// =============================================================================
+// NOTIFICATIONS & REMINDERS
+// =============================================================================
+
+model Reminder {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String    // morning, midday, evening, ritual, custom
+  label     String
+  time      String    // HH:mm
+  enabled   Boolean   @default(true)
+  ritualId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model NotificationCampaign {
+  id            String   @id @default(cuid())
+  title         String
+  body          String
+  data          Json?
+  segmentId     String?
+  scheduledFor  DateTime?
+  timezone      String?  // null = send in user's timezone
+  sentCount     Int      @default(0)
+  deliveredCount Int     @default(0)
+  openedCount   Int      @default(0)
+  createdBy     String
+  createdAt     DateTime @default(now())
+  sentAt        DateTime?
+
+  segment Segment? @relation(fields: [segmentId], references: [id])
+  logs    NotificationLog[]
+
+  @@index([scheduledFor])
+}
+
+model NotificationLog {
+  id          String             @id @default(cuid())
+  campaignId  String?
+  userId      String
+  deviceId    String?
+  title       String
+  body        String
+  status      NotificationStatus @default(PENDING)
+  error       String?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  openedAt    DateTime?
+  createdAt   DateTime           @default(now())
+
+  campaign NotificationCampaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([userId])
+  @@index([campaignId])
+  @@index([status])
+}
+
+// =============================================================================
+// SEGMENTATION
+// =============================================================================
+
+model Segment {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  rules       Json     // Filter rules
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaigns NotificationCampaign[]
+}
+
+// =============================================================================
+// SUPPORT & FEEDBACK
+// =============================================================================
+
+model Feedback {
+  id           String         @id @default(cuid())
+  userId       String?
+  type         FeedbackType   @default(GENERAL)
+  subject      String?
+  message      String
+  email        String?
+  deviceInfo   Json?
+  status       FeedbackStatus @default(NEW)
+  assignedTo   String?
+  internalNotes String?
+  resolvedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  category  String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// =============================================================================
+// SYSTEM CONFIG
+// =============================================================================
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  enabled     Boolean  @default(false)
+  rules       Json?    // Targeting rules
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+model LegalContent {
+  id        String   @id @default(cuid())
+  type      String   @unique // privacy_policy, terms_of_service
+  title     String
+  content   String   @db.Text
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// AUDIT LOGS
+// =============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  // User affected
+  adminId    String?  // Admin who performed action
+  action     String
+  resource   String
+  resourceId String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user  User? @relation("UserAuditLogs", fields: [userId], references: [id])
+  admin User? @relation("AdminAuditLogs", fields: [adminId], references: [id])
+
+  @@index([userId])
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+}
