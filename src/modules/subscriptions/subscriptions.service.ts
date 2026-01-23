@@ -1,10 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SubscriptionTier } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RevenueCatService } from './revenuecat.service';
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private revenueCat: RevenueCatService,
+  ) {}
 
   async getSubscription(userId: string) {
     const subscription = await this.prisma.subscription.findUnique({
@@ -24,6 +28,19 @@ export class SubscriptionsService {
   }
 
   async startTrial(userId: string, durationDays = 7) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    // Check if user already had a trial
+    if (subscription.trialStartedAt) {
+      throw new BadRequestException('Trial already used');
+    }
+
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + durationDays);
 
@@ -38,39 +55,128 @@ export class SubscriptionsService {
     });
   }
 
-  async validateReceipt(userId: string, receiptData: any) {
-    // TODO: Integrate with RevenueCat API
-    // For now, mock the validation
-    
-    // In production:
-    // 1. Send receipt to RevenueCat
-    // 2. Get entitlements
-    // 3. Update subscription accordingly
-
-    return this.prisma.subscription.update({
-      where: { userId },
-      data: {
-        tier: SubscriptionTier.PREMIUM,
-        isTrialing: false,
-        receiptData,
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-      },
-    });
-  }
-
-  async restorePurchases(userId: string) {
-    // TODO: Call RevenueCat to restore purchases
-    // This would sync with the app store receipts
-
+  async validateReceipt(
+    userId: string,
+    receiptData: string,
+    platform: 'ios' | 'android',
+    productId?: string
+  ) {
     const subscription = await this.prisma.subscription.findUnique({
       where: { userId },
     });
 
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    // Get RevenueCat app user ID (use our userId or their stored ID)
+    const revenueCatId = subscription.revenuecatId || userId;
+
+    // Validate with RevenueCat
+    const result = await this.revenueCat.validateReceipt(
+      revenueCatId,
+      receiptData,
+      platform,
+      productId
+    );
+
+    if (!result.isValid) {
+      throw new BadRequestException('Invalid receipt');
+    }
+
+    // Determine subscription tier
+    let tier: SubscriptionTier = SubscriptionTier.PREMIUM;
+    if (result.entitlements?.includes('lifetime')) {
+      tier = SubscriptionTier.LIFETIME;
+    }
+
+    // Update subscription
+    const updated = await this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        tier,
+        isTrialing: false,
+        productId: result.productId,
+        receiptData: { receipt: receiptData, platform },
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: result.expiresAt,
+        revenuecatId: revenueCatId,
+        cancelledAt: null,
+      },
+    });
+
+    // Grant premium entitlement
+    await this.prisma.entitlement.upsert({
+      where: {
+        subscriptionId_featureId: {
+          subscriptionId: subscription.id,
+          featureId: 'premium',
+        },
+      },
+      update: {
+        expiresAt: result.expiresAt,
+        source: 'purchase',
+      },
+      create: {
+        subscriptionId: subscription.id,
+        featureId: 'premium',
+        source: 'purchase',
+        expiresAt: result.expiresAt,
+      },
+    });
+
     return {
-      restored: false,
-      subscription,
-      message: 'No purchases found to restore',
+      success: true,
+      subscription: updated,
+      productId: result.productId,
+      expiresAt: result.expiresAt,
+    };
+  }
+
+  async restorePurchases(userId: string) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    const revenueCatId = subscription.revenuecatId || userId;
+
+    // Restore from RevenueCat
+    const result = await this.revenueCat.restorePurchases(revenueCatId);
+
+    if (!result.isValid) {
+      return {
+        restored: false,
+        subscription,
+        message: 'No purchases found to restore',
+      };
+    }
+
+    // Determine tier
+    let tier: SubscriptionTier = SubscriptionTier.PREMIUM;
+    if (result.entitlements?.includes('lifetime')) {
+      tier = SubscriptionTier.LIFETIME;
+    }
+
+    // Update subscription
+    const updated = await this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        tier,
+        isTrialing: false,
+        productId: result.productId,
+        currentPeriodEnd: result.expiresAt,
+        cancelledAt: null,
+      },
+    });
+
+    return {
+      restored: true,
+      subscription: updated,
+      message: 'Purchases restored successfully',
     };
   }
 
@@ -151,26 +257,57 @@ export class SubscriptionsService {
     });
   }
 
+  // Admin: Grant premium to user
+  async adminGrantPremium(userId: string, durationDays?: number) {
+    const expiresAt = durationDays
+      ? new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000)
+      : undefined;
+
+    return this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        tier: durationDays ? SubscriptionTier.PREMIUM : SubscriptionTier.LIFETIME,
+        isTrialing: false,
+        currentPeriodEnd: expiresAt,
+        cancelledAt: null,
+      },
+    });
+  }
+
+  // Admin: Revoke premium from user
+  async adminRevokePremium(userId: string) {
+    return this.prisma.subscription.update({
+      where: { userId },
+      data: {
+        tier: SubscriptionTier.FREE,
+        isTrialing: false,
+        currentPeriodEnd: null,
+      },
+    });
+  }
+
   // RevenueCat Webhook handler
   async handleWebhook(event: any) {
     const { type, app_user_id, product_id, expiration_at_ms } = event;
 
     const user = await this.prisma.user.findFirst({
       where: {
-        subscription: {
-          revenuecatId: app_user_id,
-        },
+        OR: [
+          { id: app_user_id },
+          { subscription: { revenuecatId: app_user_id } },
+        ],
       },
     });
 
     if (!user) {
       console.warn(`Webhook: User not found for RevenueCat ID ${app_user_id}`);
-      return;
+      return { received: true, processed: false };
     }
 
     switch (type) {
       case 'INITIAL_PURCHASE':
       case 'RENEWAL':
+      case 'PRODUCT_CHANGE':
         await this.prisma.subscription.update({
           where: { userId: user.id },
           data: {
@@ -192,7 +329,17 @@ export class SubscriptionsService {
         });
         break;
 
+      case 'UNCANCELLATION':
+        await this.prisma.subscription.update({
+          where: { userId: user.id },
+          data: {
+            cancelledAt: null,
+          },
+        });
+        break;
+
       case 'EXPIRATION':
+      case 'BILLING_ISSUE':
         await this.prisma.subscription.update({
           where: { userId: user.id },
           data: {
@@ -201,7 +348,21 @@ export class SubscriptionsService {
           },
         });
         break;
+
+      case 'NON_RENEWING_PURCHASE':
+        // Lifetime purchase
+        await this.prisma.subscription.update({
+          where: { userId: user.id },
+          data: {
+            tier: SubscriptionTier.LIFETIME,
+            isTrialing: false,
+            cancelledAt: null,
+          },
+        });
+        break;
     }
+
+    return { received: true, processed: true };
   }
 
   private isSubscriptionActive(subscription: any): boolean {

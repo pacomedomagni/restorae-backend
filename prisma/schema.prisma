@@ -114,6 +114,7 @@ enum FeedbackStatus {
 model User {
   id                  String    @id @default(cuid())
   email               String?   @unique
+  emailVerified       Boolean   @default(false)
   passwordHash        String?
   name                String?
   avatarUrl           String?
@@ -125,6 +126,14 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
+  
+  // SSO
+  appleId             String?   @unique
+  googleId            String?   @unique
+  
+  // Password Reset
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
 
   // Relations
   devices          Device[]
@@ -142,6 +151,8 @@ model User {
 
   @@index([email])
   @@index([createdAt])
+  @@index([appleId])
+  @@index([googleId])
 }
 
 model Device {

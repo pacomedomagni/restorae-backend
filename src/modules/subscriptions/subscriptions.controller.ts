@@ -25,8 +25,16 @@ export class SubscriptionsController {
 
   @Post('validate')
   @ApiOperation({ summary: 'Validate receipt' })
-  validateReceipt(@CurrentUser() user: any, @Body() body: { receiptData: any }) {
-    return this.subscriptionsService.validateReceipt(user.id, body.receiptData);
+  validateReceipt(
+    @CurrentUser() user: any,
+    @Body() body: { receiptData: string; platform: 'ios' | 'android'; productId?: string },
+  ) {
+    return this.subscriptionsService.validateReceipt(
+      user.id,
+      body.receiptData,
+      body.platform,
+      body.productId,
+    );
   }
 
   @Post('restore')

@@ -1,10 +1,12 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { SSOService } from './sso.service';
+import { PasswordResetService } from './password-reset.service';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +14,8 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private ssoService: SSOService,
+    private passwordResetService: PasswordResetService,
   ) {}
 
   // Register with email/password
@@ -251,5 +255,202 @@ export class AuthService {
   private sanitizeUser(user: any) {
     const { passwordHash, ...sanitized } = user;
     return sanitized;
+  }
+
+  // =========================================================================
+  // SSO - Apple Sign In
+  // =========================================================================
+
+  async signInWithApple(identityToken: string, name?: string, nonce?: string) {
+    const ssoUser = await this.ssoService.verifyAppleToken(identityToken, nonce);
+    return this.handleSSOLogin(ssoUser, name);
+  }
+
+  // =========================================================================
+  // SSO - Google Sign In
+  // =========================================================================
+
+  async signInWithGoogle(idToken: string, platform: 'web' | 'ios' | 'android' = 'ios') {
+    const ssoUser = await this.ssoService.verifyGoogleToken(idToken, platform);
+    return this.handleSSOLogin(ssoUser, ssoUser.name);
+  }
+
+  // =========================================================================
+  // SSO - Common Handler
+  // =========================================================================
+
+  private async handleSSOLogin(
+    ssoUser: { providerId: string; provider: 'apple' | 'google'; email?: string; name?: string; emailVerified: boolean },
+    providedName?: string
+  ) {
+    // Check if user exists with this provider ID
+    let user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { appleId: ssoUser.provider === 'apple' ? ssoUser.providerId : undefined },
+          { googleId: ssoUser.provider === 'google' ? ssoUser.providerId : undefined },
+          { email: ssoUser.email || undefined },
+        ].filter(c => Object.values(c)[0] !== undefined),
+      },
+      include: {
+        preferences: true,
+        subscription: true,
+      },
+    });
+
+    if (user) {
+      // Update SSO link if not already linked
+      const updateData: any = {};
+      if (ssoUser.provider === 'apple' && !user.appleId) {
+        updateData.appleId = ssoUser.providerId;
+      }
+      if (ssoUser.provider === 'google' && !user.googleId) {
+        updateData.googleId = ssoUser.providerId;
+      }
+      if (ssoUser.emailVerified && !user.emailVerified) {
+        updateData.emailVerified = true;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+          include: { preferences: true, subscription: true },
+        });
+      }
+
+      if (!user.isActive) {
+        throw new UnauthorizedException('Account is disabled');
+      }
+
+      const tokens = await this.generateTokens(user.id);
+      return {
+        user: this.sanitizeUser(user),
+        ...tokens,
+        isNewUser: false,
+      };
+    }
+
+    // Create new user
+    user = await this.prisma.user.create({
+      data: {
+        email: ssoUser.email,
+        emailVerified: ssoUser.emailVerified,
+        name: providedName || ssoUser.name,
+        appleId: ssoUser.provider === 'apple' ? ssoUser.providerId : null,
+        googleId: ssoUser.provider === 'google' ? ssoUser.providerId : null,
+        preferences: { create: {} },
+        subscription: { create: { tier: 'FREE' } },
+      },
+      include: {
+        preferences: true,
+        subscription: true,
+      },
+    });
+
+    const tokens = await this.generateTokens(user.id);
+    return {
+      user: this.sanitizeUser(user),
+      ...tokens,
+      isNewUser: true,
+    };
+  }
+
+  // =========================================================================
+  // Password Reset
+  // =========================================================================
+
+  async requestPasswordReset(email: string) {
+    return this.passwordResetService.requestReset(email);
+  }
+
+  async verifyResetToken(token: string) {
+    return this.passwordResetService.verifyToken(token);
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    return this.passwordResetService.resetPassword(token, newPassword);
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    return this.passwordResetService.changePassword(userId, currentPassword, newPassword);
+  }
+
+  // =========================================================================
+  // Link SSO to Existing Account
+  // =========================================================================
+
+  async linkApple(userId: string, identityToken: string) {
+    const ssoUser = await this.ssoService.verifyAppleToken(identityToken);
+    
+    // Check if Apple ID already linked to another account
+    const existing = await this.prisma.user.findFirst({
+      where: { appleId: ssoUser.providerId, NOT: { id: userId } },
+    });
+    
+    if (existing) {
+      throw new BadRequestException('This Apple account is already linked to another user');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { appleId: ssoUser.providerId },
+      include: { preferences: true, subscription: true },
+    });
+
+    return this.sanitizeUser(user);
+  }
+
+  async linkGoogle(userId: string, idToken: string, platform: 'web' | 'ios' | 'android' = 'ios') {
+    const ssoUser = await this.ssoService.verifyGoogleToken(idToken, platform);
+    
+    // Check if Google ID already linked to another account
+    const existing = await this.prisma.user.findFirst({
+      where: { googleId: ssoUser.providerId, NOT: { id: userId } },
+    });
+    
+    if (existing) {
+      throw new BadRequestException('This Google account is already linked to another user');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { googleId: ssoUser.providerId },
+      include: { preferences: true, subscription: true },
+    });
+
+    return this.sanitizeUser(user);
+  }
+
+  async unlinkSSO(userId: string, provider: 'apple' | 'google') {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { appleId: true, googleId: true, passwordHash: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Ensure user has another way to log in
+    const hasPassword = !!user.passwordHash;
+    const hasApple = !!user.appleId;
+    const hasGoogle = !!user.googleId;
+
+    const loginMethodsCount = [hasPassword, hasApple, hasGoogle].filter(Boolean).length;
+
+    if (loginMethodsCount <= 1) {
+      throw new BadRequestException('Cannot unlink: you need at least one login method');
+    }
+
+    const updateData = provider === 'apple' ? { appleId: null } : { googleId: null };
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      include: { preferences: true, subscription: true },
+    });
+
+    return this.sanitizeUser(updated);
   }
 }
