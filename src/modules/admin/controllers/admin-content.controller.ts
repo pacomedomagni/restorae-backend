@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CreateContentDto, UpdateContentDto } from '../dto';
 
 @ApiTags('admin/content')
 @Controller('admin/content')
@@ -55,7 +56,7 @@ export class AdminContentController {
 
   @Post()
   @ApiOperation({ summary: 'Create content' })
-  async create(@Body() data: any) {
+  async create(@Body() data: CreateContentDto) {
     return this.prisma.contentItem.create({
       data: {
         type: data.type,
@@ -77,7 +78,7 @@ export class AdminContentController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update content' })
-  async update(@Param('id') id: string, @Body() data: any) {
+  async update(@Param('id') id: string, @Body() data: UpdateContentDto) {
     return this.prisma.contentItem.update({
       where: { id },
       data: {

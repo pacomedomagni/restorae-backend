@@ -1,0 +1,11 @@
+# Ignore build output
+dist/
+node_modules/
+
+# Environment files (except example)
+.env
+.env.local
+.env.*.local
+
+# Docker
+*.log
