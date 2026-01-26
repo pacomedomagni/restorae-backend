@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException, BadRequestExcepti
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHmac } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -180,8 +181,9 @@ export class AuthService {
 
   // Refresh tokens
   async refreshTokens(refreshToken: string) {
+    const refreshTokenHash = this.hashRefreshToken(refreshToken);
     const session = await this.prisma.session.findUnique({
-      where: { refreshToken },
+      where: { refreshToken: refreshTokenHash },
     });
 
     if (!session || session.expiresAt < new Date()) {
@@ -199,8 +201,9 @@ export class AuthService {
 
   // Logout
   async logout(refreshToken: string) {
+    const refreshTokenHash = this.hashRefreshToken(refreshToken);
     await this.prisma.session.deleteMany({
-      where: { refreshToken },
+      where: { refreshToken: refreshTokenHash },
     });
     return { success: true };
   }
@@ -216,13 +219,13 @@ export class AuthService {
     });
 
     // Store refresh token
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    const expiresAt = new Date(Date.now() + this.getRefreshTokenTtlMs());
+    const refreshTokenHash = this.hashRefreshToken(refreshToken);
 
     await this.prisma.session.create({
       data: {
         userId,
-        refreshToken,
+        refreshToken: refreshTokenHash,
         expiresAt,
       },
     });
@@ -255,6 +258,36 @@ export class AuthService {
   private sanitizeUser(user: any) {
     const { passwordHash, ...sanitized } = user;
     return sanitized;
+  }
+
+  private hashRefreshToken(token: string): string {
+    const secret = this.configService.get('JWT_REFRESH_SECRET') || 'refresh-secret';
+    return createHmac('sha256', secret).update(token).digest('hex');
+  }
+
+  private getRefreshTokenTtlMs(): number {
+    const raw = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '30d');
+    const match = /^\s*(\d+)\s*(ms|s|m|h|d)\s*$/i.exec(raw);
+    if (!match) {
+      return 30 * 24 * 60 * 60 * 1000;
+    }
+
+    const value = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    switch (unit) {
+      case 'ms':
+        return value;
+      case 's':
+        return value * 1000;
+      case 'm':
+        return value * 60 * 1000;
+      case 'h':
+        return value * 60 * 60 * 1000;
+      case 'd':
+        return value * 24 * 60 * 60 * 1000;
+      default:
+        return 30 * 24 * 60 * 60 * 1000;
+    }
   }
 
   // =========================================================================
