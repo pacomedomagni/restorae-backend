@@ -7,12 +7,11 @@ export class ContentService {
   constructor(private prisma: PrismaService) {}
 
   // Get all content of a type (for mobile app)
-  async getByType(type: ContentType, locale = 'en', includePremium = false) {
+  async getByType(type: ContentType, locale = 'en', userTier = 'FREE') {
     const items = await this.prisma.contentItem.findMany({
       where: {
         type,
         status: ContentStatus.PUBLISHED,
-        ...(includePremium ? {} : {}), // Don't filter, let client handle gating
       },
       include: {
         locales: {
@@ -23,11 +22,23 @@ export class ContentService {
       orderBy: { order: 'asc' },
     });
 
-    return items.map((item) => this.mergeLocale(item, locale));
+    return items.map((item) => {
+      const merged = this.mergeLocale(item, locale);
+      
+      // Scrub premium content for free users
+      if (item.isPremium && userTier === 'FREE') {
+        if (merged.audioFile) {
+          merged.audioFile.url = null; // Scrub URL
+        }
+        // Add other scrubbing logic here if needed
+      }
+      
+      return merged;
+    });
   }
 
   // Get single content item
-  async getBySlug(slug: string, locale = 'en') {
+  async getBySlug(slug: string, locale = 'en', userTier = 'FREE') {
     const item = await this.prisma.contentItem.findUnique({
       where: { slug },
       include: {
@@ -42,57 +53,66 @@ export class ContentService {
       throw new NotFoundException('Content not found');
     }
 
-    return this.mergeLocale(item, locale);
+    const merged = this.mergeLocale(item, locale);
+
+    // Scrub premium content for free users
+    if (item.isPremium && userTier === 'FREE') {
+      if (merged.audioFile) {
+        merged.audioFile.url = null;
+      }
+    }
+
+    return merged;
   }
 
   // Get breathing patterns
-  async getBreathingPatterns(locale = 'en') {
-    return this.getByType(ContentType.BREATHING, locale);
+  async getBreathingPatterns(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.BREATHING, locale, userTier);
   }
 
   // Get grounding techniques
-  async getGroundingTechniques(locale = 'en') {
-    return this.getByType(ContentType.GROUNDING, locale);
+  async getGroundingTechniques(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.GROUNDING, locale, userTier);
   }
 
   // Get reset exercises
-  async getResetExercises(locale = 'en') {
-    return this.getByType(ContentType.RESET, locale);
+  async getResetExercises(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.RESET, locale, userTier);
   }
 
   // Get focus sessions
-  async getFocusSessions(locale = 'en') {
-    return this.getByType(ContentType.FOCUS, locale);
+  async getFocusSessions(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.FOCUS, locale, userTier);
   }
 
   // Get SOS presets
-  async getSosPresets(locale = 'en') {
-    return this.getByType(ContentType.SOS, locale);
+  async getSosPresets(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.SOS, locale, userTier);
   }
 
   // Get situational guides
-  async getSituationalGuides(locale = 'en') {
-    return this.getByType(ContentType.SITUATIONAL, locale);
+  async getSituationalGuides(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.SITUATIONAL, locale, userTier);
   }
 
   // Get journal prompts
-  async getJournalPrompts(locale = 'en') {
-    return this.getByType(ContentType.PROMPT, locale);
+  async getJournalPrompts(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.PROMPT, locale, userTier);
   }
 
   // Get morning rituals
-  async getMorningRituals(locale = 'en') {
-    return this.getByType(ContentType.MORNING_RITUAL, locale);
+  async getMorningRituals(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.MORNING_RITUAL, locale, userTier);
   }
 
   // Get evening rituals
-  async getEveningRituals(locale = 'en') {
-    return this.getByType(ContentType.EVENING_RITUAL, locale);
+  async getEveningRituals(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.EVENING_RITUAL, locale, userTier);
   }
 
   // Get ambient sounds
-  async getAmbientSounds(locale = 'en') {
-    return this.getByType(ContentType.AMBIENT_SOUND, locale);
+  async getAmbientSounds(locale = 'en', userTier = 'FREE') {
+    return this.getByType(ContentType.AMBIENT_SOUND, locale, userTier);
   }
 
   // Get all free content IDs (for premium gating)

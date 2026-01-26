@@ -15,6 +15,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { HealthModule } from './common/health/health.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { SyncModule } from './modules/sync/sync.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
     NotificationsModule,
     AdminModule,
     FeedbackModule,
+    SyncModule,
   ],
   providers: [
     // Global exception filter for consistent error responses

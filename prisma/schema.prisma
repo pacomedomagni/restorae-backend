@@ -262,6 +262,8 @@ model ContentItem {
   bestFor     String?
   duration    String?
   icon        String?
+  imageUrl    String?       // For card backgrounds / thumbnails
+  videoUrl    String?       // For immersive looping backgrounds
   isPremium   Boolean       @default(false)
   order       Int           @default(0)
   status      ContentStatus @default(DRAFT)
@@ -274,6 +276,8 @@ model ContentItem {
   audioFile   AudioFile?      @relation(fields: [audioFileId], references: [id])
   audioFileId String?
 
+  @@index([type, status, order]) // Composite index for common "Get All" queries
+  @@index([isPremium, status])   // For filtering free/premium content
   @@index([type])
   @@index([status])
   @@index([isPremium])
