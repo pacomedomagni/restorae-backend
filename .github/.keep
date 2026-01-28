@@ -1,0 +1,3 @@
+# This directory is intentionally kept minimal.
+# GitHub Actions are disabled for this repository.
+# To enable workflows, add workflow files to .github/workflows/

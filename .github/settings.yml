@@ -1,0 +1,6 @@
+# Repository settings managed by Probot Settings app
+# https://github.com/probot/settings
+
+repository:
+  # Disable GitHub Actions
+  has_actions: false
