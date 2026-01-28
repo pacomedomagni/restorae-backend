@@ -13,6 +13,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { ActivitiesModule } from './modules/activities/activities.module';
 import { HealthModule } from './common/health/health.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { SyncModule } from './modules/sync/sync.module';
@@ -53,6 +54,7 @@ import { SyncModule } from './modules/sync/sync.module';
     NotificationsModule,
     AdminModule,
     FeedbackModule,
+    ActivitiesModule,
     SyncModule,
   ],
   providers: [

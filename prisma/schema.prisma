@@ -146,6 +146,7 @@ model User {
   reminders        Reminder[]
   weeklyGoals      WeeklyGoal[]
   feedbacks        Feedback[]
+  activityLogs     ActivityLog[]
   auditLogs        AuditLog[]        @relation("UserAuditLogs")
   adminAuditLogs   AuditLog[]        @relation("AdminAuditLogs")
 
@@ -611,4 +612,41 @@ model AuditLog {
   @@index([adminId])
   @@index([action])
   @@index([createdAt])
+}
+
+// =============================================================================
+// ACTIVITY LOGS
+// =============================================================================
+
+enum ActivityCategory {
+  BREATHING
+  GROUNDING
+  RESET
+  FOCUS
+  JOURNAL
+  MOOD
+  STORY
+  RITUAL
+  SOS
+}
+
+model ActivityLog {
+  id           String           @id @default(cuid())
+  userId       String
+  category     ActivityCategory
+  activityType String           // The specific activity name (e.g., "4-7-8 Breathing")
+  activityId   String?          // Reference to content if applicable
+  duration     Int              // Duration in seconds
+  completed    Boolean          @default(true)
+  metadata     Json?            // Additional data like cycles, mood, etc.
+  timestamp    DateTime         @default(now()) // When the activity occurred
+  createdAt    DateTime         @default(now()) // When the log was created
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([category])
+  @@index([timestamp])
+  @@index([userId, category])
+  @@index([userId, timestamp])
 }
