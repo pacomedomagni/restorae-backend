@@ -21,7 +21,7 @@ import { SyncModule } from './modules/sync/sync.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
     }),
     // Rate limiting - 100 requests per minute per IP
     ThrottlerModule.forRoot([

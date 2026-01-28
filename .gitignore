@@ -37,9 +37,14 @@ lerna-debug.log*
 # Environment
 .env
 .env.local
+.env.prod
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Build artifacts
+*.tar.gz
 
 # Prisma
 prisma/migrations/*_migration/

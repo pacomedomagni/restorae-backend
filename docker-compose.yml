@@ -1,4 +1,6 @@
-version: '3.8'
+# Local Development - Just databases
+# Usage: docker compose up -d
+# Then run: npm run start:dev
 
 services:
   postgres:
@@ -7,7 +9,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: restorae
-      POSTGRES_PASSWORD: restorae_dev_password
+      POSTGRES_PASSWORD: restorae_dev
       POSTGRES_DB: restorae
     ports:
       - "5432:5432"
