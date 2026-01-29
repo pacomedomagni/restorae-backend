@@ -118,6 +118,129 @@ export class AchievementsService {
     };
   }
 
+  // Get comprehensive user progress
+  async getUserProgress(userId: string) {
+    const [level, achievements, unlocked] = await Promise.all([
+      this.getUserLevel(userId),
+      this.prisma.achievement.count({ where: { isActive: true } }),
+      this.prisma.userAchievement.count({
+        where: { userId, unlockedAt: { not: null } },
+      }),
+    ]);
+
+    return {
+      ...level,
+      totalAchievements: achievements,
+      unlockedCount: unlocked,
+      percentComplete: Math.round((unlocked / achievements) * 100),
+    };
+  }
+
+  // Get leaderboard
+  async getLeaderboard(limit = 10) {
+    const leaders = await this.prisma.userLevel.findMany({
+      take: limit,
+      orderBy: [{ totalXp: 'desc' }, { currentStreak: 'desc' }],
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    return leaders.map((l, index) => ({
+      rank: index + 1,
+      userId: l.userId,
+      name: l.user.name || 'Anonymous',
+      avatarUrl: l.user.avatarUrl,
+      level: l.level,
+      totalXp: l.totalXp,
+      currentStreak: l.currentStreak,
+    }));
+  }
+
+  // Track session completion
+  async trackSessionComplete(userId: string, durationMinutes: number, sessionType: string) {
+    // Award XP for session completion
+    const xpResult = await this.awardXp(
+      userId,
+      XP_REWARDS.SESSION_COMPLETE,
+      `session:${sessionType}`,
+    );
+
+    // Check for session-related achievements
+    const achievements = [];
+
+    // First breath achievement
+    if (sessionType === 'BREATHING') {
+      const result = await this.updateProgress(userId, 'first-breath', 1);
+      if (result.unlocked) achievements.push(result.achievement);
+    }
+
+    // Milestone achievements based on duration
+    if (durationMinutes >= 5) {
+      const result = await this.updateProgress(userId, 'five-minute-master', 1);
+      if (result.unlocked) achievements.push(result.achievement);
+    }
+
+    return {
+      ...xpResult,
+      achievements,
+    };
+  }
+
+  // Unlock achievement by slug/key
+  async unlockBySlug(userId: string, slug: string) {
+    const achievement = await this.prisma.achievement.findUnique({
+      where: { key: slug },
+    });
+
+    if (!achievement) {
+      throw new NotFoundException(`Achievement ${slug} not found`);
+    }
+
+    // Check if already unlocked
+    const existing = await this.prisma.userAchievement.findUnique({
+      where: {
+        userId_achievementId: { userId, achievementId: achievement.id },
+      },
+    });
+
+    if (existing?.unlockedAt) {
+      return { alreadyUnlocked: true, achievement };
+    }
+
+    // Create or update user achievement
+    await this.prisma.userAchievement.upsert({
+      where: {
+        userId_achievementId: { userId, achievementId: achievement.id },
+      },
+      update: {
+        unlockedAt: new Date(),
+        progress: achievement.requirement,
+      },
+      create: {
+        userId,
+        achievementId: achievement.id,
+        progress: achievement.requirement,
+        unlockedAt: new Date(),
+      },
+    });
+
+    // Award XP
+    const xpResult = await this.awardXp(userId, achievement.xpReward, `achievement:${slug}`);
+
+    return {
+      unlocked: true,
+      achievement,
+      ...xpResult,
+    };
+  }
+
   // Award XP to user
   async awardXp(userId: string, xp: number, source: string) {
     let userLevel = await this.prisma.userLevel.findUnique({

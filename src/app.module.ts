@@ -20,8 +20,7 @@ import { SyncModule } from './modules/sync/sync.module';
 import { StoriesModule } from './modules/stories/stories.module';
 import { AchievementsModule } from './modules/achievements/achievements.module';
 import { CoachMarksModule } from './modules/coach-marks/coach-marks.module';
-// TODO: SeasonalModule removed - requires SeasonalContent model in schema
-// import { SeasonalModule } from './modules/seasonal/seasonal.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
 
 @Module({
   imports: [
@@ -64,7 +63,7 @@ import { CoachMarksModule } from './modules/coach-marks/coach-marks.module';
     StoriesModule,
     AchievementsModule,
     CoachMarksModule,
-    // SeasonalModule, // TODO: Requires SeasonalContent model
+    SessionsModule,
   ],
   providers: [
     // Global exception filter for consistent error responses

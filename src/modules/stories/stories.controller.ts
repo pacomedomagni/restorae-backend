@@ -22,6 +22,7 @@ import { StoriesService } from './stories.service';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateStoryDto, UpdateStoryDto } from './dto/story.dto';
 
 @ApiTags('stories')
@@ -106,6 +107,26 @@ export class StoriesController {
   @ApiOperation({ summary: 'Track story play' })
   trackPlay(@Param('id') id: string, @Req() req: any) {
     return this.storiesService.trackPlay(id, req.user?.id);
+  }
+
+  @Post(':id/favorite')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Toggle story favorite' })
+  toggleFavorite(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.storiesService.toggleFavorite(user.id, id);
+  }
+
+  @Get('user/favorites')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user\'s favorite stories' })
+  @ApiQuery({ name: 'locale', required: false })
+  getFavorites(
+    @CurrentUser() user: any,
+    @Query('locale') locale = 'en',
+  ) {
+    return this.storiesService.getFavorites(user.id, locale);
   }
 
   // ==================== ADMIN ENDPOINTS ====================

@@ -180,6 +180,8 @@ model User {
   weeklyGoals      WeeklyGoal[]
   feedbacks        Feedback[]
   activityLogs     ActivityLog[]
+  userSessions     UserSession[]
+  storyFavorites   UserStoryFavorite[]
   auditLogs        AuditLog[]        @relation("UserAuditLogs")
   adminAuditLogs   AuditLog[]        @relation("AdminAuditLogs")
 
@@ -648,6 +650,87 @@ model AuditLog {
 }
 
 // =============================================================================
+// USER SESSIONS (Activity Session Tracking)
+// =============================================================================
+
+enum SessionMode {
+  SINGLE
+  RITUAL
+  SOS
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  EXITED
+  INTERRUPTED
+}
+
+model UserSession {
+  id              String        @id @default(cuid())
+  userId          String
+  mode            SessionMode
+  status          SessionStatus @default(IN_PROGRESS)
+  
+  // References (optional based on mode)
+  ritualId        String?       // For RITUAL mode - custom ritual reference
+  ritualSlug      String?       // For RITUAL mode - preset ritual slug
+  sosPresetId     String?       // For SOS mode
+  
+  // Stats
+  totalActivities Int           @default(0)
+  completedCount  Int           @default(0)
+  skippedCount    Int           @default(0)
+  totalDuration   Int           @default(0) // seconds
+  
+  // Timestamps
+  startedAt       DateTime      @default(now())
+  completedAt     DateTime?
+  
+  // Flags
+  wasPartial      Boolean       @default(false) // User exited early
+  wasInterrupted  Boolean       @default(false) // App crash/background
+  
+  // Metadata
+  metadata        Json?         // Additional context
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities      SessionActivity[]
+  
+  @@index([userId])
+  @@index([mode])
+  @@index([status])
+  @@index([startedAt])
+  @@index([userId, startedAt])
+}
+
+model SessionActivity {
+  id            String   @id @default(cuid())
+  sessionId     String
+  activityType  String   // breathing, grounding, focus, etc.
+  activityId    String   // Reference to the activity
+  activityName  String
+  order         Int      // Position in the session queue
+  
+  // Completion
+  completed     Boolean  @default(false)
+  skipped       Boolean  @default(false)
+  duration      Int?     // Actual duration in seconds
+  
+  // Timestamps
+  startedAt     DateTime?
+  completedAt   DateTime?
+  
+  session       UserSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([activityType])
+}
+
+// =============================================================================
 // ACTIVITY LOGS
 // =============================================================================
 
@@ -671,6 +754,7 @@ model ActivityLog {
   activityId   String?          // Reference to content if applicable
   duration     Int              // Duration in seconds
   completed    Boolean          @default(true)
+  sessionId    String?          // Link to UserSession if part of a session
   metadata     Json?            // Additional data like cycles, mood, etc.
   timestamp    DateTime         @default(now()) // When the activity occurred
   createdAt    DateTime         @default(now()) // When the log was created
@@ -682,6 +766,7 @@ model ActivityLog {
   @@index([timestamp])
   @@index([userId, category])
   @@index([userId, timestamp])
+  @@index([sessionId])
 }
 
 // =============================================================================
@@ -710,7 +795,8 @@ model BedtimeStory {
   updatedAt       DateTime      @updatedAt
   publishedAt     DateTime?
 
-  locales BedtimeStoryLocale[]
+  locales    BedtimeStoryLocale[]
+  favoritedBy UserStoryFavorite[]
 
   @@index([category, status, order])
   @@index([isPremium, status])
@@ -843,4 +929,22 @@ model CoachMarkLocale {
   coachMark CoachMark @relation(fields: [coachMarkId], references: [id], onDelete: Cascade)
 
   @@unique([coachMarkId, locale])
+}
+
+// =============================================================================
+// USER STORY FAVORITES
+// =============================================================================
+
+model UserStoryFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  storyId   String
+  createdAt DateTime @default(now())
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story BedtimeStory  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storyId])
+  @@index([userId])
+  @@index([storyId])
 }

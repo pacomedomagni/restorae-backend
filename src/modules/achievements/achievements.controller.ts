@@ -57,12 +57,29 @@ export class AchievementsController {
     return this.achievementsService.getUserAchievements(req.user.id);
   }
 
+  @Get('user/progress')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user progress including level and XP' })
+  getUserProgress(@Req() req: any) {
+    return this.achievementsService.getUserProgress(req.user.id);
+  }
+
   @Get('user/level')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user level and XP' })
   getUserLevel(@Req() req: any) {
     return this.achievementsService.getUserLevel(req.user.id);
+  }
+
+  @Get('leaderboard')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get achievements leaderboard' })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  getLeaderboard(@Query('limit') limit = 10) {
+    return this.achievementsService.getLeaderboard(Number(limit));
   }
 
   // ==================== GAMIFICATION TRIGGERS ====================
@@ -73,6 +90,30 @@ export class AchievementsController {
   @ApiOperation({ summary: 'Update user streak (call daily)' })
   updateStreak(@Req() req: any) {
     return this.achievementsService.updateStreak(req.user.id);
+  }
+
+  @Post('track/session')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Track session completion for achievements' })
+  trackSessionComplete(
+    @Req() req: any,
+    @Body() data: { durationMinutes: number; sessionType: string },
+  ) {
+    return this.achievementsService.trackSessionComplete(
+      req.user.id,
+      data.durationMinutes,
+      data.sessionType,
+    );
+  }
+
+  @Post('unlock/:slug')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Manually unlock an achievement by slug' })
+  @ApiParam({ name: 'slug', example: 'first-breath' })
+  unlockAchievement(@Param('slug') slug: string, @Req() req: any) {
+    return this.achievementsService.unlockBySlug(req.user.id, slug);
   }
 
   @Post('progress/:key')

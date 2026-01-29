@@ -237,6 +237,49 @@ export class StoriesService {
     });
   }
 
+  // Toggle story favorite for user
+  async toggleFavorite(userId: string, storyId: string) {
+    const existing = await (this.prisma as any).userStoryFavorite.findUnique({
+      where: {
+        userId_storyId: { userId, storyId },
+      },
+    });
+
+    if (existing) {
+      await (this.prisma as any).userStoryFavorite.delete({
+        where: { id: existing.id },
+      });
+      return { favorited: false };
+    }
+
+    await (this.prisma as any).userStoryFavorite.create({
+      data: { userId, storyId },
+    });
+    return { favorited: true };
+  }
+
+  // Get user's favorite stories
+  async getFavorites(userId: string, locale = 'en') {
+    const favorites = await (this.prisma as any).userStoryFavorite.findMany({
+      where: { userId },
+      include: {
+        story: {
+          include: {
+            locales: {
+              where: { locale },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return favorites.map((fav: any) => ({
+      ...this.mergeLocale(fav.story, locale),
+      favorited: true,
+    }));
+  }
+
   // Helper: Merge locale data into story
   private mergeLocale(story: any, _locale: string) {
     const localeData = story.locales?.[0];

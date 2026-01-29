@@ -6,6 +6,49 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ContentService {
   constructor(private prisma: PrismaService) {}
 
+  // Generic get content (for mobile app query param style)
+  async getContent(type?: string, locale = 'en', isPremium?: boolean, userTier = 'FREE') {
+    const where: any = {
+      status: ContentStatus.PUBLISHED,
+    };
+    
+    if (type) {
+      // Convert string to ContentType enum
+      const contentType = ContentType[type.toUpperCase() as keyof typeof ContentType];
+      if (contentType) {
+        where.type = contentType;
+      }
+    }
+    
+    if (isPremium !== undefined) {
+      where.isPremium = isPremium;
+    }
+    
+    const items = await this.prisma.contentItem.findMany({
+      where,
+      include: {
+        locales: {
+          where: { locale },
+        },
+        audioFile: true,
+      },
+      orderBy: { order: 'asc' },
+    });
+
+    return items.map((item) => {
+      const merged = this.mergeLocale(item, locale);
+      
+      // Scrub premium content for free users
+      if (item.isPremium && userTier === 'FREE') {
+        if (merged.audioFile) {
+          merged.audioFile.url = null;
+        }
+      }
+      
+      return merged;
+    });
+  }
+
   // Get all content of a type (for mobile app)
   async getByType(type: ContentType, locale = 'en', userTier = 'FREE') {
     const items = await this.prisma.contentItem.findMany({

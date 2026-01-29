@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import * as os from 'os';
 import { PrismaService } from '../../prisma/prisma.service';
 
 interface HealthStatus {
@@ -28,9 +29,8 @@ export class HealthController {
   @ApiOperation({ summary: 'Health check endpoint' })
   async check(): Promise<HealthStatus> {
     const dbStatus = await this.checkDatabase();
-    const memoryUsage = process.memoryUsage();
-    const totalMemory = require('os').totalmem();
-    const usedMemory = totalMemory - require('os').freemem();
+    const totalMemory = os.totalmem();
+    const usedMemory = totalMemory - os.freemem();
 
     const isHealthy = dbStatus === 'up';
 

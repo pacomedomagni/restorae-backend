@@ -196,7 +196,7 @@ export class NotificationsService {
     }
 
     // Build user query based on target
-    let userWhere: any = { isActive: true };
+    const userWhere: any = { isActive: true };
 
     switch (target) {
       case 'premium':

@@ -14,6 +14,20 @@ export class ContentController {
     return req.user?.subscription?.tier || 'FREE';
   }
 
+  @Get()
+  @ApiOperation({ summary: 'Get content by type (generic endpoint)' })
+  @ApiQuery({ name: 'type', required: false, description: 'Content type filter' })
+  @ApiQuery({ name: 'locale', required: false })
+  @ApiQuery({ name: 'isPremium', required: false })
+  getContent(
+    @Query('type') type?: string,
+    @Query('locale') locale = 'en',
+    @Query('isPremium') isPremium?: boolean,
+    @Req() req?: any,
+  ) {
+    return this.contentService.getContent(type, locale, isPremium, this.getUserTier(req));
+  }
+
   @Get('breathing')
   @ApiOperation({ summary: 'Get breathing patterns' })
   @ApiQuery({ name: 'locale', required: false })

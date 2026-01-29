@@ -98,7 +98,7 @@ export class AuthService {
   // Anonymous device registration
   async registerAnonymous(deviceId: string, platform: string) {
     // Check if device already exists
-    let device = await this.prisma.device.findUnique({
+    const device = await this.prisma.device.findUnique({
       where: { deviceId },
       include: { user: true },
     });
