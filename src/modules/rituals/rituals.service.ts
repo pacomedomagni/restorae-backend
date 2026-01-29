@@ -180,7 +180,7 @@ export class RitualsService {
         ...(ritualId && { ritualId }),
       },
       orderBy: { completedAt: 'desc' },
-      take: limit,
+      take: Number(limit),
       include: { ritual: true },
     });
   }

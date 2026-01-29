@@ -39,8 +39,8 @@ export class AdminSubscriptionsController {
         entitlements: true,
       },
       orderBy: { updatedAt: 'desc' },
-      take: limit,
-      skip: offset,
+      take: Number(limit),
+      skip: Number(offset),
     });
   }
 

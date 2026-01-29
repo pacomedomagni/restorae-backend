@@ -54,8 +54,8 @@ export class AdminUsersController {
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
+      take: Number(limit),
+      skip: Number(offset),
     });
   }
 

@@ -56,7 +56,7 @@ export class AdminService {
   async getRecentFeedback(limit = 10) {
     return this.prisma.feedback.findMany({
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take: Number(limit),
       include: {
         user: {
           select: { id: true, email: true, name: true },
@@ -85,8 +85,8 @@ export class AdminService {
   async getAuditLogs(limit = 50, offset = 0) {
     return this.prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
+      take: Number(limit),
+      skip: Number(offset),
       include: {
         user: { select: { id: true, email: true, name: true } },
         admin: { select: { id: true, email: true, name: true } },

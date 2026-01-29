@@ -315,7 +315,7 @@ export class NotificationsService {
   async getCampaigns(limit = 20) {
     return this.prisma.notificationCampaign.findMany({
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take: Number(limit),
     });
   }
 

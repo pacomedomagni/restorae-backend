@@ -26,8 +26,8 @@ export class JournalService {
     return this.prisma.journalEntry.findMany({
       where: { userId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
+      take: Number(limit),
+      skip: Number(offset),
       include: {
         moodEntry: true,
       },
@@ -114,7 +114,7 @@ export class JournalService {
     return this.prisma.journalEntry.findMany({
       where: { userId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take: Number(limit),
     });
   }
 

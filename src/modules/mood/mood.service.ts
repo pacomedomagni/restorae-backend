@@ -25,8 +25,8 @@ export class MoodService {
     return this.prisma.moodEntry.findMany({
       where: { userId, deletedAt: null },
       orderBy: { timestamp: 'desc' },
-      take: limit,
-      skip: offset,
+      take: Number(limit),
+      skip: Number(offset),
     });
   }
 

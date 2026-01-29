@@ -40,8 +40,8 @@ export class AdminContentController {
       },
       include: { locales: true, audioFile: true },
       orderBy: [{ type: 'asc' }, { order: 'asc' }],
-      take: limit,
-      skip: offset,
+      take: Number(limit),
+      skip: Number(offset),
     });
   }
 

@@ -83,6 +83,7 @@ export class SSOService {
       }
 
       if (payload.aud !== this.appleClientId) {
+        this.logger.error(`Apple audience mismatch. Token aud: ${payload.aud}, Expected: ${this.appleClientId}`);
         throw new UnauthorizedException('Invalid Apple token: wrong audience');
       }
 
@@ -158,7 +159,11 @@ export class SSOService {
           this.googleClientIdAndroid,
         ].filter(Boolean);
 
+        this.logger.debug(`Google token audience: ${payload.aud}`);
+        this.logger.debug(`Valid audiences: ${validAuds.join(', ')}`);
+
         if (!validAuds.includes(payload.aud)) {
+          this.logger.error(`Google audience mismatch. Token aud: ${payload.aud}, Valid: ${validAuds.join(', ')}`);
           throw new UnauthorizedException('Invalid Google token: wrong audience');
         }
       }

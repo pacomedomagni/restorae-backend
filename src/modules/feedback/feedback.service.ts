@@ -42,8 +42,8 @@ export class FeedbackService {
   async getAllFeedback(limit = 50, offset = 0) {
     return this.prisma.feedback.findMany({
       orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
+      take: Number(limit),
+      skip: Number(offset),
       include: {
         user: {
           select: { id: true, email: true, name: true },
