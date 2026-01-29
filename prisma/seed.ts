@@ -1,9 +1,20 @@
 import { PrismaClient, ContentType, ContentStatus, SubscriptionTier, AchievementCategory, AchievementTier, StoryMood, StoryCategory } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+// IMPORTANT: Change this password before running in production!
+const ADMIN_PASSWORD = process.env.ADMIN_SEED_PASSWORD || 'ChangeThisPassword123!';
+
 async function main() {
   console.log('🌱 Seeding database...');
+
+  // Hash the admin password
+  const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+  
+  if (!process.env.ADMIN_SEED_PASSWORD) {
+    console.warn('⚠️  WARNING: Using default admin password. Set ADMIN_SEED_PASSWORD env var for production!');
+  }
 
   // Create admin user
   const admin = await prisma.user.upsert({
@@ -15,7 +26,7 @@ async function main() {
       role: 'ADMIN',
       isActive: true,
       onboardingCompleted: true,
-      passwordHash: '$2b$10$YourHashedPasswordHere', // You should hash this properly
+      passwordHash: adminPasswordHash,
       preferences: {
         create: {
           theme: 'system',
