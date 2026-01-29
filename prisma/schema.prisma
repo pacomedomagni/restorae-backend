@@ -38,12 +38,45 @@ enum ContentType {
   MORNING_RITUAL
   EVENING_RITUAL
   AMBIENT_SOUND
+  BEDTIME_STORY
 }
 
 enum ContentStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+enum StoryCategory {
+  NATURE
+  TRAVEL
+  FANTASY
+  MEDITATION
+  SOUNDSCAPES
+  CLASSICS
+}
+
+enum StoryMood {
+  CALM
+  DREAMY
+  COZY
+  MAGICAL
+}
+
+enum AchievementCategory {
+  CONSISTENCY
+  SESSION
+  MINDFULNESS
+  EXPLORATION
+  MASTERY
+  SPECIAL
+}
+
+enum AchievementTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
 }
 
 enum MoodType {
@@ -649,4 +682,165 @@ model ActivityLog {
   @@index([timestamp])
   @@index([userId, category])
   @@index([userId, timestamp])
+}
+
+// =============================================================================
+// BEDTIME STORIES
+// =============================================================================
+
+model BedtimeStory {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  title           String
+  subtitle        String?
+  description     String
+  narrator        String
+  duration        Int           // minutes
+  audioUrl        String
+  artworkUrl      String?
+  category        StoryCategory
+  tags            String[]
+  isPremium       Boolean       @default(true)
+  mood            StoryMood     @default(CALM)
+  backgroundSound String?       // ID of ambient sound to layer
+  order           Int           @default(0)
+  status          ContentStatus @default(DRAFT)
+  listenCount     Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  publishedAt     DateTime?
+
+  locales BedtimeStoryLocale[]
+
+  @@index([category, status, order])
+  @@index([isPremium, status])
+  @@index([mood])
+  @@index([slug])
+}
+
+model BedtimeStoryLocale {
+  id          String   @id @default(cuid())
+  storyId     String
+  locale      String   // en, es, fr, etc.
+  title       String
+  subtitle    String?
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  story BedtimeStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, locale])
+}
+
+// =============================================================================
+// ACHIEVEMENTS & GAMIFICATION
+// =============================================================================
+
+model Achievement {
+  id          String              @id @default(cuid())
+  key         String              @unique
+  title       String
+  description String
+  icon        String
+  category    AchievementCategory
+  tier        AchievementTier     @default(BRONZE)
+  requirement Int                 // Number needed to unlock
+  xpReward    Int                 @default(0)
+  isSecret    Boolean             @default(false)
+  order       Int                 @default(0)
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  userAchievements UserAchievement[]
+  locales          AchievementLocale[]
+
+  @@index([category])
+  @@index([tier])
+  @@index([isActive])
+  @@index([key])
+}
+
+model AchievementLocale {
+  id            String   @id @default(cuid())
+  achievementId String
+  locale        String
+  title         String
+  description   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([achievementId, locale])
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  progress      Int      @default(0) // Current progress towards requirement
+  unlockedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([unlockedAt])
+}
+
+model UserLevel {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  level          Int      @default(1)
+  currentXp      Int      @default(0)
+  totalXp        Int      @default(0)
+  currentStreak  Int      @default(0)
+  longestStreak  Int      @default(0)
+  lastActiveDate DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([level])
+  @@index([currentStreak])
+}
+
+// =============================================================================
+// COACH MARKS / ONBOARDING HINTS
+// =============================================================================
+
+model CoachMark {
+  id          String        @id @default(cuid())
+  key         String        @unique
+  screen      String        // Which screen this appears on
+  title       String
+  description String
+  position    String        @default("center") // top, bottom, center
+  order       Int           @default(0)
+  isActive    Boolean       @default(true)
+  status      ContentStatus @default(PUBLISHED)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  locales CoachMarkLocale[]
+
+  @@index([screen, isActive])
+  @@index([key])
+}
+
+model CoachMarkLocale {
+  id          String   @id @default(cuid())
+  coachMarkId String
+  locale      String
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  coachMark CoachMark @relation(fields: [coachMarkId], references: [id], onDelete: Cascade)
+
+  @@unique([coachMarkId, locale])
 }

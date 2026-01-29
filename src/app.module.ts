@@ -17,6 +17,11 @@ import { ActivitiesModule } from './modules/activities/activities.module';
 import { HealthModule } from './common/health/health.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { SyncModule } from './modules/sync/sync.module';
+import { StoriesModule } from './modules/stories/stories.module';
+import { AchievementsModule } from './modules/achievements/achievements.module';
+import { CoachMarksModule } from './modules/coach-marks/coach-marks.module';
+// TODO: SeasonalModule removed - requires SeasonalContent model in schema
+// import { SeasonalModule } from './modules/seasonal/seasonal.module';
 
 @Module({
   imports: [
@@ -56,6 +61,10 @@ import { SyncModule } from './modules/sync/sync.module';
     FeedbackModule,
     ActivitiesModule,
     SyncModule,
+    StoriesModule,
+    AchievementsModule,
+    CoachMarksModule,
+    // SeasonalModule, // TODO: Requires SeasonalContent model
   ],
   providers: [
     // Global exception filter for consistent error responses
