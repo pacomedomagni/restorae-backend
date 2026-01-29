@@ -5,6 +5,7 @@ import { AdminSubscriptionsController } from './controllers/admin-subscriptions.
 import { AdminAnalyticsController } from './controllers/admin-analytics.controller';
 import { AdminNotificationsController } from './controllers/admin-notifications.controller';
 import { AdminSettingsController } from './controllers/admin-settings.controller';
+import { AdminMetricsController } from './controllers/admin-metrics.controller';
 import { AdminService } from './admin.service';
 import { ContentModule } from '../content/content.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -18,6 +19,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     AdminAnalyticsController,
     AdminNotificationsController,
     AdminSettingsController,
+    AdminMetricsController,
   ],
   providers: [AdminService],
   exports: [AdminService],

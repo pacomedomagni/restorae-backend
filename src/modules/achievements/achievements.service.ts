@@ -141,26 +141,28 @@ export class AchievementsService {
     const leaders = await this.prisma.userLevel.findMany({
       take: limit,
       orderBy: [{ totalXp: 'desc' }, { currentStreak: 'desc' }],
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-          },
-        },
-      },
     });
 
-    return leaders.map((l, index) => ({
-      rank: index + 1,
-      userId: l.userId,
-      name: l.user.name || 'Anonymous',
-      avatarUrl: l.user.avatarUrl,
-      level: l.level,
-      totalXp: l.totalXp,
-      currentStreak: l.currentStreak,
-    }));
+    // Fetch user details separately
+    const userIds = leaders.map(l => l.userId);
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, avatarUrl: true },
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    return leaders.map((l, index) => {
+      const user = userMap.get(l.userId);
+      return {
+        rank: index + 1,
+        userId: l.userId,
+        name: user?.name || 'Anonymous',
+        avatarUrl: user?.avatarUrl || null,
+        level: l.level,
+        totalXp: l.totalXp,
+        currentStreak: l.currentStreak,
+      };
+    });
   }
 
   // Track session completion

@@ -15,12 +15,14 @@ import { AdminModule } from './modules/admin/admin.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { HealthModule } from './common/health/health.module';
+import { LoggerModule } from './common/logger/logger.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { SyncModule } from './modules/sync/sync.module';
 import { StoriesModule } from './modules/stories/stories.module';
 import { AchievementsModule } from './modules/achievements/achievements.module';
 import { CoachMarksModule } from './modules/coach-marks/coach-marks.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -46,6 +48,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
         limit: 1000, // 1000 requests per hour
       },
     ]),
+    LoggerModule,
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -64,6 +67,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
     AchievementsModule,
     CoachMarksModule,
     SessionsModule,
+    AnalyticsModule,
   ],
   providers: [
     // Global exception filter for consistent error responses

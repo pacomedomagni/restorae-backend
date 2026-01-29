@@ -3,9 +3,23 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { LoggerService } from './common/logger/logger.service';
+import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
+import { MetricsService } from './common/health/metrics.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Create app with custom logger
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  // Use Pino logger for NestJS
+  const logger = app.get(LoggerService);
+  app.useLogger(logger);
+
+  // Add HTTP logging interceptor
+  const metrics = app.get(MetricsService);
+  app.useGlobalInterceptors(new HttpLoggingInterceptor(logger, metrics));
 
   // Security headers
   app.use(helmet({
@@ -62,9 +76,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port);
   
-  console.log(`🚀 Restorae API running on http://localhost:${port}`);
+  logger.log(`🚀 Restorae API running on http://localhost:${port}`, 'Bootstrap');
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`📚 API Docs available at http://localhost:${port}/api/docs`);
+    logger.log(`📚 API Docs available at http://localhost:${port}/api/docs`, 'Bootstrap');
   }
 }
 
