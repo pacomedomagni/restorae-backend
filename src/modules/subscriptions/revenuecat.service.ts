@@ -98,8 +98,12 @@ export class RevenueCatService {
     productId?: string
   ): Promise<ValidateReceiptResult> {
     if (!this.apiKey) {
-      this.logger.warn('RevenueCat API key not configured, using mock validation');
-      // Return mock success for development
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error('RevenueCat API key not configured in production; refusing receipt validation');
+        return { isValid: false };
+      }
+
+      this.logger.warn('RevenueCat API key not configured, using mock validation (non-production only)');
       return {
         isValid: true,
         productId: productId || 'com.restorae.premium.monthly',
