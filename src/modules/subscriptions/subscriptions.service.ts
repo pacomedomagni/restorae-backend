@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SubscriptionTier } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RevenueCatService } from './revenuecat.service';
 
 @Injectable()
 export class SubscriptionsService {
+  private readonly logger = new Logger(SubscriptionsService.name);
+
   constructor(
     private prisma: PrismaService,
     private revenueCat: RevenueCatService,
@@ -300,7 +302,7 @@ export class SubscriptionsService {
     });
 
     if (!user) {
-      console.warn(`Webhook: User not found for RevenueCat ID ${app_user_id}`);
+      this.logger.warn(`Webhook: User not found for RevenueCat ID ${app_user_id}`);
       return { received: true, processed: false };
     }
 

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { AchievementCategory, AchievementTier } from '@prisma/client';
+import { AchievementCategory } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateAchievementDto, UpdateAchievementDto } from './dto/achievement.dto';
 

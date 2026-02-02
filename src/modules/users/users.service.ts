@@ -20,7 +20,8 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const { passwordHash, ...result } = user;
+    const { passwordHash, ...result } = user as any;
+    void passwordHash;
     return result;
   }
 
@@ -39,7 +40,8 @@ export class UsersService {
       },
     });
 
-    const { passwordHash, ...result } = user;
+    const { passwordHash, ...result } = user as any;
+    void passwordHash;
     return result;
   }
 
@@ -108,9 +110,14 @@ export class UsersService {
     // Filter out locked journal entries
     const journalEntries = user.journalEntries
       .filter((e) => !e.isLocked)
-      .map(({ isLocked, ...entry }) => entry);
+      .map((entry: any) => {
+        const { isLocked, ...rest } = entry;
+        void isLocked;
+        return rest;
+      });
 
-    const { passwordHash, ...userData } = user;
+    const { passwordHash, ...userData } = user as any;
+    void passwordHash;
 
     return {
       exportedAt: new Date().toISOString(),

@@ -60,9 +60,10 @@ export class ActivitiesService {
    * Get activity statistics for a user
    */
   async getStats(userId: string, startDate?: string, endDate?: string) {
-    const start = startDate ? new Date(startDate) : this.getStartOfDay(new Date());
-    const end = endDate ? new Date(endDate) : new Date();
-    
+    const hasRange = Boolean(startDate || endDate);
+    const rangeStart = startDate ? new Date(startDate) : undefined;
+    const rangeEnd = endDate ? new Date(endDate) : undefined;
+
     // Get today's stats
     const todayStart = this.getStartOfDay(new Date());
     const todayStats = await (this.prisma as any).activityLog.groupBy({
@@ -95,10 +96,26 @@ export class ActivitiesService {
       _sum: { duration: true },
     });
 
+    // Optional: custom date range stats
+    const rangeStats = hasRange
+      ? await (this.prisma as any).activityLog.groupBy({
+          by: ['category'],
+          where: {
+            userId,
+            timestamp: {
+              ...(rangeStart ? { gte: rangeStart } : {}),
+              ...(rangeEnd ? { lte: rangeEnd } : {}),
+            },
+          },
+          _count: true,
+          _sum: { duration: true },
+        })
+      : null;
+
     // Get daily breakdown for this week
     const dailyBreakdown = await this.getDailyBreakdown(userId, weekStart);
 
-    return {
+    const result: any = {
       today: this.formatStats(todayStats),
       thisWeek: {
         ...this.formatStats(weekStats),
@@ -106,6 +123,16 @@ export class ActivitiesService {
       },
       allTime: this.formatStats(allTimeStats),
     };
+
+    if (rangeStats) {
+      result.range = {
+        startDate: rangeStart?.toISOString() ?? null,
+        endDate: rangeEnd?.toISOString() ?? null,
+        ...this.formatStats(rangeStats),
+      };
+    }
+
+    return result;
   }
 
   /**
