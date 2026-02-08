@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
@@ -48,6 +49,12 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
         limit: 1000, // 1000 requests per hour
       },
     ]),
+    // Global cache (in-memory by default, configurable via REDIS_URL)
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 300, // 5 minutes default
+      max: 500, // max items in cache
+    }),
     LoggerModule,
     PrismaModule,
     HealthModule,

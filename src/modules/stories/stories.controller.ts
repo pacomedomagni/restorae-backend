@@ -8,8 +8,10 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
   Req,
 } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiTags,
   ApiOperation,
@@ -38,6 +40,8 @@ export class StoriesController {
 
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300) // 5 minutes
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all bedtime stories' })
   @ApiQuery({ name: 'locale', required: false, example: 'en' })
@@ -46,6 +50,8 @@ export class StoriesController {
   }
 
   @Get('categories')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(1800) // 30 minutes
   @ApiOperation({ summary: 'Get all story categories' })
   getCategories() {
     return this.storiesService.getCategories();

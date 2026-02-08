@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Req, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { ApiTags, ApiOperation, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ContentService } from './content.service';
 import { OptionalJwtAuthGuard } from '../../modules/auth/guards/optional-jwt-auth.guard';
@@ -6,6 +7,8 @@ import { OptionalJwtAuthGuard } from '../../modules/auth/guards/optional-jwt-aut
 @ApiTags('content')
 @Controller('content')
 @UseGuards(OptionalJwtAuthGuard)
+@UseInterceptors(CacheInterceptor)
+@CacheTTL(300) // 5 minutes
 @ApiBearerAuth()
 export class ContentController {
   constructor(private contentService: ContentService) {}
