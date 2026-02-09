@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD, APP_FILTER } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -25,6 +25,10 @@ import { CoachMarksModule } from './modules/coach-marks/coach-marks.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { EmailModule } from './common/email/email.module';
+import { SanitizerModule } from './common/sanitizer/sanitizer.module';
+import { TracingModule } from './common/tracing/tracing.module';
+import { SentryModule } from './common/sentry/sentry.module';
+import { QueueModule } from './common/queue/queue.module';
 
 @Module({
   imports: [
@@ -60,6 +64,10 @@ import { EmailModule } from './common/email/email.module';
     LoggerModule,
     PrismaModule,
     HealthModule,
+    SanitizerModule,
+    TracingModule,
+    SentryModule,
+    QueueModule,
     AuthModule,
     UsersModule,
     ContentModule,
