@@ -46,8 +46,8 @@ export class CoachMarksService {
       select: { preferences: true },
     });
 
-    const preferences = (user?.preferences as any) || {};
-    const seenCoachMarks = preferences.seenCoachMarks || [];
+    const preferences = (user?.preferences as Record<string, unknown> | null) || {};
+    const seenCoachMarks = (preferences.seenCoachMarks as string[]) || [];
 
     if (!seenCoachMarks.includes(key)) {
       seenCoachMarks.push(key);
@@ -59,7 +59,7 @@ export class CoachMarksService {
         preferences: {
           ...preferences,
           seenCoachMarks,
-        },
+        } as any,
       },
     });
 
@@ -73,7 +73,7 @@ export class CoachMarksService {
       select: { preferences: true },
     });
 
-    const preferences = (user?.preferences as any) || {};
+    const preferences = (user?.preferences as Record<string, unknown> | null) || {};
     return preferences.seenCoachMarks || [];
   }
 
@@ -84,12 +84,12 @@ export class CoachMarksService {
       select: { preferences: true },
     });
 
-    const preferences = (user?.preferences as any) || {};
+    const preferences = (user?.preferences as Record<string, unknown> | null) || {};
     delete preferences.seenCoachMarks;
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { preferences },
+      data: { preferences } as any,
     });
 
     return { success: true };

@@ -96,6 +96,9 @@ describe('AuthService', () => {
     // Default: session.create succeeds
     prisma.session.create.mockResolvedValue(buildSession() as any);
 
+    // Make $transaction execute the callback with the same prisma mock
+    prisma.$transaction.mockImplementation(async (fn: any) => fn(prisma));
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -72,8 +73,8 @@ export class AdminService {
     action: string;
     resource: string;
     resourceId?: string;
-    oldValue?: any;
-    newValue?: any;
+    oldValue?: Prisma.InputJsonValue;
+    newValue?: Prisma.InputJsonValue;
     ipAddress?: string;
     userAgent?: string;
   }) {

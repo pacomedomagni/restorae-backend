@@ -24,6 +24,7 @@ import { AchievementsModule } from './modules/achievements/achievements.module';
 import { CoachMarksModule } from './modules/coach-marks/coach-marks.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { EmailModule } from './common/email/email.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       ttl: 300, // 5 minutes default
       max: 500, // max items in cache
     }),
+    EmailModule,
     LoggerModule,
     PrismaModule,
     HealthModule,

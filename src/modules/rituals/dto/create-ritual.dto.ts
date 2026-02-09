@@ -1,16 +1,20 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsEnum, ValidateNested, IsInt, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsBoolean, IsArray, IsEnum, IsNotEmpty, MaxLength, ValidateNested, IsInt, Min } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { TimeOfDay, DayOfWeek } from '@prisma/client';
 
 class RitualStepDto {
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  @Transform(({ value }) => value?.trim())
   title: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   description?: string;
 
   @ApiProperty({ description: 'Duration in seconds' })
@@ -22,11 +26,15 @@ class RitualStepDto {
 export class CreateRitualDto {
   @ApiProperty()
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  @Transform(({ value }) => value?.trim())
   title: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   description?: string;
 
   @ApiProperty({ enum: TimeOfDay, required: false })
@@ -48,6 +56,7 @@ export class CreateRitualDto {
   @ApiProperty({ required: false, example: '08:00' })
   @IsOptional()
   @IsString()
+  @MaxLength(5)
   reminderTime?: string;
 
   @ApiProperty({ type: [RitualStepDto] })

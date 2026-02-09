@@ -170,6 +170,7 @@ model User {
 
   // Relations
   devices          Device[]
+  sessions         Session[]
   preferences      Preference?
   subscription     Subscription?
   moodEntries      MoodEntry[]
@@ -215,6 +216,8 @@ model Session {
   deviceId     String?
   expiresAt    DateTime
   createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([refreshToken])
@@ -371,6 +374,7 @@ model MoodEntry {
   @@index([userId])
   @@index([timestamp])
   @@index([mood])
+  @@index([userId, timestamp])
 }
 
 model WeeklyGoal {
@@ -412,6 +416,7 @@ model JournalEntry {
   @@index([userId])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([userId, createdAt])
 }
 
 // =============================================================================
@@ -472,6 +477,7 @@ model RitualCompletion {
   @@index([userId])
   @@index([ritualId])
   @@index([completedAt])
+  @@index([userId, completedAt])
 }
 
 // =============================================================================
@@ -570,7 +576,7 @@ model Feedback {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  user User? @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([type])
@@ -640,8 +646,8 @@ model AuditLog {
   userAgent  String?
   createdAt  DateTime @default(now())
 
-  user  User? @relation("UserAuditLogs", fields: [userId], references: [id])
-  admin User? @relation("AdminAuditLogs", fields: [adminId], references: [id])
+  user  User? @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+  admin User? @relation("AdminAuditLogs", fields: [adminId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([adminId])

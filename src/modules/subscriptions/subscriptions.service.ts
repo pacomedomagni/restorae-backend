@@ -289,7 +289,12 @@ export class SubscriptionsService {
   }
 
   // RevenueCat Webhook handler
-  async handleWebhook(event: any) {
+  async handleWebhook(event: {
+    type: string;
+    app_user_id: string;
+    product_id?: string;
+    expiration_at_ms?: number;
+  }) {
     const { type, app_user_id, product_id, expiration_at_ms } = event;
 
     const user = await this.prisma.user.findFirst({
@@ -367,7 +372,12 @@ export class SubscriptionsService {
     return { received: true, processed: true };
   }
 
-  private isSubscriptionActive(subscription: any): boolean {
+  private isSubscriptionActive(subscription: {
+    tier: SubscriptionTier;
+    isTrialing: boolean;
+    trialEndsAt: Date | null;
+    currentPeriodEnd: Date | null;
+  }): boolean {
     if (subscription.tier === SubscriptionTier.LIFETIME) return true;
     if (subscription.tier === SubscriptionTier.FREE) return false;
 

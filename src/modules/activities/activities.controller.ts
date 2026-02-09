@@ -6,11 +6,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ActivitiesService } from './activities.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateActivityLogDto, CreateActivityLogBatchDto } from './dto/create-activity-log.dto';
+import { UserPayload } from '../../common/types/user-payload.interface';
 
 @ApiTags('activities')
 @Controller('activities')
@@ -21,22 +22,26 @@ export class ActivitiesController {
 
   @Post('log')
   @ApiOperation({ summary: 'Log a completed activity' })
-  logActivity(@CurrentUser() user: any, @Body() dto: CreateActivityLogDto) {
+  @ApiResponse({ status: 201, description: 'Activity logged' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  logActivity(@CurrentUser() user: UserPayload, @Body() dto: CreateActivityLogDto) {
     return this.activitiesService.logActivity(user.id, dto);
   }
 
   @Post('log/batch')
   @ApiOperation({ summary: 'Log multiple activities in batch' })
-  logActivitiesBatch(@CurrentUser() user: any, @Body() dto: CreateActivityLogBatchDto) {
+  @ApiResponse({ status: 201, description: 'Batch logged' })
+  logActivitiesBatch(@CurrentUser() user: UserPayload, @Body() dto: CreateActivityLogBatchDto) {
     return this.activitiesService.logActivitiesBatch(user.id, dto.activities);
   }
 
   @Get('stats')
   @ApiOperation({ summary: 'Get activity statistics' })
+  @ApiResponse({ status: 200, description: 'Activity statistics' })
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
   getStats(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
@@ -45,13 +50,14 @@ export class ActivitiesController {
 
   @Get('history')
   @ApiOperation({ summary: 'Get activity history' })
+  @ApiResponse({ status: 200, description: 'Paginated history' })
   @ApiQuery({ name: 'category', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'offset', required: false })
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
   getHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Query('category') category?: string,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,

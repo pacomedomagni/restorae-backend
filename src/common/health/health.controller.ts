@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import * as os from 'os';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -20,6 +21,7 @@ interface HealthStatus {
 
 @ApiTags('health')
 @Controller('health')
+@SkipThrottle()
 export class HealthController {
   private readonly startTime = Date.now();
 

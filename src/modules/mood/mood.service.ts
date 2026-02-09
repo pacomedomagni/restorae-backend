@@ -213,7 +213,7 @@ export class MoodService {
     });
   }
 
-  private calculateStreaks(entries: any[]) {
+  private calculateStreaks(entries: Array<{ timestamp: Date }>) {
     if (entries.length === 0) {
       return { current: 0, longest: 0 };
     }
@@ -256,7 +256,7 @@ export class MoodService {
     return { current, longest };
   }
 
-  private calculateTrend(entries: any[]): string {
+  private calculateTrend(entries: Array<{ mood: MoodType }>): string {
     if (entries.length < 3) {
       return 'insufficient';
     }

@@ -8,12 +8,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { SessionsService } from './sessions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateSessionDto, SessionMode } from './dto/create-session.dto';
 import { UpdateSessionDto, UpdateActivityDto, SessionStatus } from './dto/update-session.dto';
+import { UserPayload } from '../../common/types/user-payload.interface';
 
 @ApiTags('sessions')
 @Controller('sessions')
@@ -24,12 +25,15 @@ export class SessionsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new session' })
-  create(@CurrentUser() user: any, @Body() dto: CreateSessionDto) {
+  @ApiResponse({ status: 201, description: 'Session created' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  create(@CurrentUser() user: UserPayload, @Body() dto: CreateSessionDto) {
     return this.sessionsService.create(user.id, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get session history' })
+  @ApiResponse({ status: 200, description: 'Session history returned' })
   @ApiQuery({ name: 'mode', required: false, enum: SessionMode })
   @ApiQuery({ name: 'status', required: false, enum: SessionStatus })
   @ApiQuery({ name: 'limit', required: false })
@@ -37,7 +41,7 @@ export class SessionsController {
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
   findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Query('mode') mode?: SessionMode,
     @Query('status') status?: SessionStatus,
     @Query('limit') limit?: number,
@@ -57,10 +61,11 @@ export class SessionsController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Get session statistics' })
+  @ApiResponse({ status: 200, description: 'Statistics returned' })
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
   getStats(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
@@ -69,14 +74,18 @@ export class SessionsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a session by ID' })
-  findOne(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Session returned' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  findOne(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.sessionsService.findOne(user.id, id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update session status' })
+  @ApiResponse({ status: 200, description: 'Session updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Param('id') id: string,
     @Body() dto: UpdateSessionDto,
   ) {
@@ -85,8 +94,10 @@ export class SessionsController {
 
   @Patch(':sessionId/activities/:activityId')
   @ApiOperation({ summary: 'Update an activity within a session' })
+  @ApiResponse({ status: 200, description: 'Activity updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   updateActivity(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Param('sessionId') sessionId: string,
     @Param('activityId') activityId: string,
     @Body() dto: UpdateActivityDto,

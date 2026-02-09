@@ -1,9 +1,17 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { MetricsService } from './metrics.service';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../modules/auth/guards/roles.guard';
+import { Roles } from '../../modules/auth/decorators/roles.decorator';
 
 @ApiTags('metrics')
 @Controller('metrics')
+@SkipThrottle()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
+@ApiBearerAuth()
 export class MetricsController {
   constructor(private metrics: MetricsService) {}
 

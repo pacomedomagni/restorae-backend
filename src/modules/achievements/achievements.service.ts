@@ -486,7 +486,7 @@ export class AchievementsService {
     return XP_PER_LEVEL;
   }
 
-  private mergeLocale(achievement: any, userProgress: { unlocked: boolean; unlockedAt: Date | null; progress: number }) {
+  private mergeLocale(achievement: Record<string, unknown> & { locales?: Array<{ title?: string; description?: string }> }, userProgress: { unlocked: boolean; unlockedAt: Date | null; progress: number }) {
     const localeData = achievement.locales?.[0];
 
     return {

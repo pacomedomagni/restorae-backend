@@ -92,9 +92,10 @@ export class LoggerService implements NestLoggerService {
     this.logger.error({ err: error, ...data }, message);
   }
 
-  logRequest(method: string, url: string, statusCode: number, durationMs: number, userId?: string): void {
+  logRequest(method: string, url: string, statusCode: number, durationMs: number, userId?: string, correlationId?: string): void {
     this.logger.info({
       type: 'http',
+      correlationId,
       method,
       url,
       statusCode,

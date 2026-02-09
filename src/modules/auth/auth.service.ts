@@ -31,27 +31,32 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash,
-        name: dto.name,
-        preferences: {
-          create: {},
-        },
-        subscription: {
-          create: {
-            tier: 'FREE',
+    // Wrap user creation and related records in a transaction
+    const { user, tokens } = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash,
+          name: dto.name,
+          preferences: {
+            create: {},
+          },
+          subscription: {
+            create: {
+              tier: 'FREE',
+            },
           },
         },
-      },
-      include: {
-        preferences: true,
-        subscription: true,
-      },
-    });
+        include: {
+          preferences: true,
+          subscription: true,
+        },
+      });
 
-    const tokens = await this.generateTokens(user.id);
+      const generatedTokens = await this.generateTokensInTx(tx, createdUser.id);
+
+      return { user: createdUser, tokens: generatedTokens };
+    });
 
     return {
       user: this.sanitizeUser(user),
@@ -119,35 +124,39 @@ export class AuthService {
       };
     }
 
-    // Create anonymous user
-    const user = await this.prisma.user.create({
-      data: {
-        preferences: {
-          create: {},
-        },
-        subscription: {
-          create: {
-            tier: 'FREE',
+    // Create anonymous user with all related records in a transaction
+    const { user: newUser, tokens: newTokens } = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          preferences: {
+            create: {},
+          },
+          subscription: {
+            create: {
+              tier: 'FREE',
+            },
+          },
+          devices: {
+            create: {
+              deviceId,
+              platform,
+            },
           },
         },
-        devices: {
-          create: {
-            deviceId,
-            platform,
-          },
+        include: {
+          preferences: true,
+          subscription: true,
         },
-      },
-      include: {
-        preferences: true,
-        subscription: true,
-      },
+      });
+
+      const generatedTokens = await this.generateTokensInTx(tx, createdUser.id);
+
+      return { user: createdUser, tokens: generatedTokens };
     });
 
-    const tokens = await this.generateTokens(user.id);
-
     return {
-      user: this.sanitizeUser(user),
-      ...tokens,
+      user: this.sanitizeUser(newUser),
+      ...newTokens,
     };
   }
 
@@ -210,6 +219,11 @@ export class AuthService {
 
   // Generate tokens
   private async generateTokens(userId: string) {
+    return this.generateTokensInTx(this.prisma, userId);
+  }
+
+  // Generate tokens within a transaction or default prisma client
+  private async generateTokensInTx(tx: { session: { create: (args: { data: { userId: string; refreshToken: string; expiresAt: Date } }) => Promise<unknown> } }, userId: string) {
     const payload = { sub: userId };
 
     const accessToken = this.jwtService.sign(payload);
@@ -222,7 +236,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + this.getRefreshTokenTtlMs());
     const refreshTokenHash = this.hashRefreshToken(refreshToken);
 
-    await this.prisma.session.create({
+    await tx.session.create({
       data: {
         userId,
         refreshToken: refreshTokenHash,
@@ -255,8 +269,8 @@ export class AuthService {
   }
 
   // Remove sensitive fields
-  private sanitizeUser(user: any) {
-    const { passwordHash, ...sanitized } = user;
+  private sanitizeUser(user: Record<string, unknown> & { passwordHash?: string | null }) {
+    const { passwordHash: _, ...sanitized } = user;
     return sanitized;
   }
 
@@ -333,7 +347,7 @@ export class AuthService {
 
     if (user) {
       // Update SSO link if not already linked
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (ssoUser.provider === 'apple' && !user.appleId) {
         updateData.appleId = ssoUser.providerId;
       }

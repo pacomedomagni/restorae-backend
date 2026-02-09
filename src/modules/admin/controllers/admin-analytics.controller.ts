@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -19,18 +19,21 @@ export class AdminAnalyticsController {
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get dashboard stats' })
+  @ApiResponse({ status: 200, description: 'Stats retrieved' })
   getDashboardStats() {
     return this.adminService.getDashboardStats();
   }
 
   @Get('content')
   @ApiOperation({ summary: 'Get content stats' })
+  @ApiResponse({ status: 200, description: 'Stats retrieved' })
   getContentStats() {
     return this.adminService.getContentStats();
   }
 
   @Get('mood-trends')
   @ApiOperation({ summary: 'Get aggregate mood trends' })
+  @ApiResponse({ status: 200, description: 'Trends retrieved' })
   async getMoodTrends(@Query('days') days = 30) {
     const since = new Date();
     since.setDate(since.getDate() - days);
@@ -49,6 +52,7 @@ export class AdminAnalyticsController {
 
   @Get('tool-usage')
   @ApiOperation({ summary: 'Get tool usage stats' })
+  @ApiResponse({ status: 200, description: 'Usage retrieved' })
   async getToolUsage() {
     const [ritualCompletions, contentViews] = await Promise.all([
       this.prisma.ritualCompletion.count(),
@@ -61,6 +65,7 @@ export class AdminAnalyticsController {
 
   @Get('retention')
   @ApiOperation({ summary: 'Get retention cohorts' })
+  @ApiResponse({ status: 200, description: 'Retention retrieved' })
   async getRetention() {
     // Simplified retention calculation
     const now = new Date();
@@ -88,12 +93,14 @@ export class AdminAnalyticsController {
 
   @Get('feedback')
   @ApiOperation({ summary: 'Get recent feedback' })
+  @ApiResponse({ status: 200, description: 'Feedback retrieved' })
   getRecentFeedback(@Query('limit') limit = 10) {
     return this.adminService.getRecentFeedback(limit);
   }
 
   @Get('audit-logs')
   @ApiOperation({ summary: 'Get audit logs' })
+  @ApiResponse({ status: 200, description: 'Logs retrieved' })
   getAuditLogs(@Query('limit') limit = 50, @Query('offset') offset = 0) {
     return this.adminService.getAuditLogs(limit, offset);
   }

@@ -9,13 +9,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { ContentType, ContentStatus } from '@prisma/client';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { ContentType, ContentStatus, Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CreateContentDto, UpdateContentDto } from '../dto';
+import { CreateContentDto, UpdateContentDto, AddLocaleDto, UpdateLocaleDto } from '../dto';
 
 @ApiTags('admin/content')
 @Controller('admin/content')
@@ -27,6 +27,8 @@ export class AdminContentController {
 
   @Get()
   @ApiOperation({ summary: 'List all content' })
+  @ApiResponse({ status: 200, description: 'Content list retrieved' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async list(
     @Query('type') type?: ContentType,
     @Query('status') status?: ContentStatus,
@@ -47,6 +49,8 @@ export class AdminContentController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get content by ID' })
+  @ApiResponse({ status: 200, description: 'Content item retrieved' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async getById(@Param('id') id: string) {
     return this.prisma.contentItem.findUnique({
       where: { id },
@@ -56,6 +60,7 @@ export class AdminContentController {
 
   @Post()
   @ApiOperation({ summary: 'Create content' })
+  @ApiResponse({ status: 201, description: 'Content created' })
   async create(@Body() data: CreateContentDto) {
     return this.prisma.contentItem.create({
       data: {
@@ -78,6 +83,8 @@ export class AdminContentController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update content' })
+  @ApiResponse({ status: 200, description: 'Content updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async update(@Param('id') id: string, @Body() data: UpdateContentDto) {
     return this.prisma.contentItem.update({
       where: { id },
@@ -99,6 +106,8 @@ export class AdminContentController {
 
   @Post(':id/publish')
   @ApiOperation({ summary: 'Publish content' })
+  @ApiResponse({ status: 201, description: 'Content published' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async publish(@Param('id') id: string) {
     return this.prisma.contentItem.update({
       where: { id },
@@ -111,6 +120,8 @@ export class AdminContentController {
 
   @Post(':id/unpublish')
   @ApiOperation({ summary: 'Unpublish content' })
+  @ApiResponse({ status: 201, description: 'Content unpublished' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async unpublish(@Param('id') id: string) {
     return this.prisma.contentItem.update({
       where: { id },
@@ -120,6 +131,8 @@ export class AdminContentController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete content' })
+  @ApiResponse({ status: 200, description: 'Content deleted' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async delete(@Param('id') id: string) {
     return this.prisma.contentItem.delete({
       where: { id },
@@ -129,9 +142,11 @@ export class AdminContentController {
   // Localization
   @Post(':id/locales')
   @ApiOperation({ summary: 'Add locale' })
+  @ApiResponse({ status: 201, description: 'Locale added' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async addLocale(
     @Param('id') id: string,
-    @Body() data: { locale: string; name: string; description: string; data?: any },
+    @Body() data: AddLocaleDto,
   ) {
     return this.prisma.contentLocale.create({
       data: {
@@ -139,34 +154,37 @@ export class AdminContentController {
         locale: data.locale,
         name: data.name,
         description: data.description,
-        data: data.data,
+        data: data.data as Prisma.InputJsonValue,
       },
     });
   }
 
   @Patch(':id/locales/:locale')
   @ApiOperation({ summary: 'Update locale' })
+  @ApiResponse({ status: 200, description: 'Locale updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async updateLocale(
     @Param('id') id: string,
     @Param('locale') locale: string,
-    @Body() data: { name?: string; description?: string; data?: any },
+    @Body() data: UpdateLocaleDto,
   ) {
     return this.prisma.contentLocale.updateMany({
       where: { contentItemId: id, locale },
-      data,
+      data: data as Prisma.ContentLocaleUpdateManyMutationInput,
     });
   }
 
   // Bulk operations
   @Post('import')
   @ApiOperation({ summary: 'Import content (JSON)' })
-  async importContent(@Body() items: any[]) {
+  @ApiResponse({ status: 201, description: 'Content imported' })
+  async importContent(@Body() items: CreateContentDto[]) {
     const results = [];
     for (const item of items) {
       const result = await this.prisma.contentItem.upsert({
         where: { slug: item.slug },
-        create: item,
-        update: item,
+        create: item as unknown as Prisma.ContentItemCreateInput,
+        update: item as unknown as Prisma.ContentItemUpdateInput,
       });
       results.push(result);
     }
@@ -175,6 +193,7 @@ export class AdminContentController {
 
   @Get('export')
   @ApiOperation({ summary: 'Export content (JSON)' })
+  @ApiResponse({ status: 200, description: 'Content exported' })
   async exportContent(@Query('type') type?: ContentType) {
     return this.prisma.contentItem.findMany({
       where: type ? { type } : {},

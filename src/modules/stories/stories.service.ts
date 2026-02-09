@@ -239,20 +239,20 @@ export class StoriesService {
 
   // Toggle story favorite for user
   async toggleFavorite(userId: string, storyId: string) {
-    const existing = await (this.prisma as any).userStoryFavorite.findUnique({
+    const existing = await this.prisma.userStoryFavorite.findUnique({
       where: {
         userId_storyId: { userId, storyId },
       },
     });
 
     if (existing) {
-      await (this.prisma as any).userStoryFavorite.delete({
+      await this.prisma.userStoryFavorite.delete({
         where: { id: existing.id },
       });
       return { favorited: false };
     }
 
-    await (this.prisma as any).userStoryFavorite.create({
+    await this.prisma.userStoryFavorite.create({
       data: { userId, storyId },
     });
     return { favorited: true };
@@ -260,7 +260,7 @@ export class StoriesService {
 
   // Get user's favorite stories
   async getFavorites(userId: string, locale = 'en') {
-    const favorites = await (this.prisma as any).userStoryFavorite.findMany({
+    const favorites = await this.prisma.userStoryFavorite.findMany({
       where: { userId },
       include: {
         story: {
@@ -274,13 +274,14 @@ export class StoriesService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return favorites.map((fav: any) => ({
+    return favorites.map((fav: { story: Record<string, unknown>; [key: string]: unknown }) => ({
       ...this.mergeLocale(fav.story, locale),
       favorited: true,
     }));
   }
 
   // Helper: Merge locale data into story
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mergeLocale(story: any, _locale: string) {
     const localeData = story.locales?.[0];
 

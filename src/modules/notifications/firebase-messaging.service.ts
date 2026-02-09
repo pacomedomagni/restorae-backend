@@ -48,6 +48,22 @@ interface SendResult {
   error?: string;
 }
 
+interface FirebaseServiceAccountKey {
+  type: string;
+  project_id: string;
+  private_key_id: string;
+  private_key: string;
+  client_email: string;
+  client_id: string;
+  auth_uri: string;
+  token_uri: string;
+}
+
+interface FCMErrorDetail {
+  errorCode?: string;
+  [key: string]: unknown;
+}
+
 interface MulticastResult {
   successCount: number;
   failureCount: number;
@@ -58,7 +74,7 @@ interface MulticastResult {
 export class FirebaseMessagingService {
   private readonly logger = new Logger(FirebaseMessagingService.name);
   private readonly projectId: string;
-  private readonly serviceAccountKey: any;
+  private readonly serviceAccountKey: FirebaseServiceAccountKey | null = null;
   private accessToken: string | null = null;
   private tokenExpiry: Date | null = null;
 
@@ -68,7 +84,7 @@ export class FirebaseMessagingService {
     const serviceAccountJson = this.configService.get<string>('FIREBASE_SERVICE_ACCOUNT');
     if (serviceAccountJson) {
       try {
-        this.serviceAccountKey = JSON.parse(serviceAccountJson);
+        this.serviceAccountKey = JSON.parse(serviceAccountJson) as FirebaseServiceAccountKey;
       } catch {
         this.logger.warn('Invalid FIREBASE_SERVICE_ACCOUNT JSON');
       }
@@ -134,8 +150,8 @@ export class FirebaseMessagingService {
     };
 
     const payload = {
-      iss: this.serviceAccountKey.client_email,
-      sub: this.serviceAccountKey.client_email,
+      iss: this.serviceAccountKey!.client_email,
+      sub: this.serviceAccountKey!.client_email,
       aud: 'https://oauth2.googleapis.com/token',
       iat: now,
       exp: exp,
@@ -152,7 +168,7 @@ export class FirebaseMessagingService {
     
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(signatureInput);
-    const signature = sign.sign(this.serviceAccountKey.private_key, 'base64url');
+    const signature = sign.sign(this.serviceAccountKey!.private_key, 'base64url');
 
     return `${signatureInput}.${signature}`;
   }
@@ -195,7 +211,7 @@ export class FirebaseMessagingService {
         this.logger.error('FCM send failed:', error);
         
         // Handle token errors
-        if (error.error?.details?.some((d: any) => 
+        if (error.error?.details?.some((d: FCMErrorDetail) =>
           d.errorCode === 'UNREGISTERED' || d.errorCode === 'INVALID_ARGUMENT'
         )) {
           return { 

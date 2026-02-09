@@ -1,8 +1,10 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UserPayload } from '../../common/types/user-payload.interface';
+import { RegisterPushTokenDto, CreateReminderDto, UpdateReminderDto } from './dto/notification.dto';
 
 @ApiTags('notifications')
 @Controller('notifications')
@@ -13,47 +15,57 @@ export class NotificationsController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register push token' })
+  @ApiResponse({ status: 201, description: 'Token registered' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   registerPushToken(
-    @CurrentUser() user: any,
-    @Body() body: { deviceId: string; pushToken: string },
+    @CurrentUser() user: UserPayload,
+    @Body() body: RegisterPushTokenDto,
   ) {
     return this.notificationsService.registerPushToken(user.id, body.deviceId, body.pushToken);
   }
 
   @Get('reminders')
   @ApiOperation({ summary: 'Get reminders' })
-  getReminders(@CurrentUser() user: any) {
+  @ApiResponse({ status: 200, description: 'Reminders returned' })
+  getReminders(@CurrentUser() user: UserPayload) {
     return this.notificationsService.getReminders(user.id);
   }
 
   @Post('reminders')
   @ApiOperation({ summary: 'Create reminder' })
+  @ApiResponse({ status: 201, description: 'Reminder created' })
   createReminder(
-    @CurrentUser() user: any,
-    @Body() body: { type: string; label: string; time: string; ritualId?: string },
+    @CurrentUser() user: UserPayload,
+    @Body() body: CreateReminderDto,
   ) {
     return this.notificationsService.createReminder(user.id, body);
   }
 
   @Patch('reminders/:id')
   @ApiOperation({ summary: 'Update reminder' })
+  @ApiResponse({ status: 200, description: 'Reminder updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   updateReminder(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Param('id') id: string,
-    @Body() body: { label?: string; time?: string; enabled?: boolean },
+    @Body() body: UpdateReminderDto,
   ) {
     return this.notificationsService.updateReminder(user.id, id, body);
   }
 
   @Delete('reminders/:id')
   @ApiOperation({ summary: 'Delete reminder' })
-  deleteReminder(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Reminder deleted' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  deleteReminder(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.notificationsService.deleteReminder(user.id, id);
   }
 
   @Post('reminders/:id/toggle')
   @ApiOperation({ summary: 'Toggle reminder' })
-  toggleReminder(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 201, description: 'Reminder toggled' })
+  @ApiResponse({ status: 404, description: 'Not found' })
+  toggleReminder(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.notificationsService.toggleReminder(user.id, id);
   }
 }

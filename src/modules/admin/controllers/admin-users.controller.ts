@@ -7,7 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -23,6 +23,8 @@ export class AdminUsersController {
 
   @Get()
   @ApiOperation({ summary: 'List users' })
+  @ApiResponse({ status: 200, description: 'Users retrieved' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async list(
     @Query('search') search?: string,
     @Query('limit') limit = 50,
@@ -61,6 +63,8 @@ export class AdminUsersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get user details' })
+  @ApiResponse({ status: 200, description: 'User retrieved' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async getById(@Param('id') id: string) {
     return this.prisma.user.findUnique({
       where: { id },
@@ -81,6 +85,8 @@ export class AdminUsersController {
 
   @Patch(':id/disable')
   @ApiOperation({ summary: 'Disable user' })
+  @ApiResponse({ status: 200, description: 'User disabled' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async disable(@Param('id') id: string) {
     return this.prisma.user.update({
       where: { id },
@@ -90,6 +96,8 @@ export class AdminUsersController {
 
   @Patch(':id/enable')
   @ApiOperation({ summary: 'Enable user' })
+  @ApiResponse({ status: 200, description: 'User enabled' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async enable(@Param('id') id: string) {
     return this.prisma.user.update({
       where: { id },
@@ -99,6 +107,8 @@ export class AdminUsersController {
 
   @Get(':id/export')
   @ApiOperation({ summary: 'Export user data (GDPR)' })
+  @ApiResponse({ status: 200, description: 'Data exported' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async exportData(@Param('id') id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -120,6 +130,8 @@ export class AdminUsersController {
 
   @Post(':id/delete')
   @ApiOperation({ summary: 'Delete user (GDPR)' })
+  @ApiResponse({ status: 201, description: 'User deleted' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async deleteUser(@Param('id') id: string) {
     // Soft delete and anonymize
     await this.prisma.user.update({

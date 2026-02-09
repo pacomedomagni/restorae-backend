@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ContentType, ContentStatus } from '@prisma/client';
+import { ContentType, ContentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -8,7 +8,7 @@ export class ContentService {
 
   // Generic get content (for mobile app query param style)
   async getContent(type?: string, locale = 'en', isPremium?: boolean, userTier = 'FREE') {
-    const where: any = {
+    const where: Prisma.ContentItemWhereInput = {
       status: ContentStatus.PUBLISHED,
     };
     
@@ -171,6 +171,7 @@ export class ContentService {
   }
 
   // Merge localized fields
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mergeLocale(item: any, locale: string) {
     const localeData = item.locales?.[0];
     if (localeData) {

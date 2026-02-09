@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, UnauthorizedException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
@@ -31,6 +31,15 @@ interface GoogleTokenPayload {
   exp: number;
 }
 
+interface AppleJWK {
+  kty: string;
+  kid: string;
+  use: string;
+  alg: string;
+  n: string;
+  e: string;
+}
+
 interface SSOUserInfo {
   providerId: string;
   provider: 'apple' | 'google';
@@ -47,7 +56,7 @@ export class SSOService {
   private readonly googleClientId: string;
   private readonly googleClientIdIOS: string;
   private readonly googleClientIdAndroid: string;
-  private applePublicKeys: any[] | null = null;
+  private applePublicKeys: AppleJWK[] | null = null;
 
   constructor(private configService: ConfigService) {
     this.appleClientId = this.configService.get<string>('APPLE_CLIENT_ID') || '';
@@ -68,14 +77,14 @@ export class SSOService {
       
       // Get Apple's public keys
       const publicKeys = await this.getApplePublicKeys();
-      const key = publicKeys.find((k: any) => k.kid === header.kid);
+      const key = publicKeys.find((k) => k.kid === header.kid);
       
       if (!key) {
         throw new UnauthorizedException('Invalid Apple token: key not found');
       }
 
       // Verify the token
-      const payload = await this.verifyJWT(identityToken, key) as AppleTokenPayload;
+      const payload = await this.verifyJWT(identityToken, key);
 
       // Validate claims
       if (payload.iss !== 'https://appleid.apple.com') {
@@ -103,15 +112,26 @@ export class SSOService {
     }
   }
 
-  private async getApplePublicKeys(): Promise<any[]> {
+  private async getApplePublicKeys(): Promise<AppleJWK[]> {
     if (this.applePublicKeys) {
       return this.applePublicKeys;
     }
 
-    const response = await fetch('https://appleid.apple.com/auth/keys');
-    const data = await response.json();
-    this.applePublicKeys = data.keys;
-    
+    try {
+      const response = await fetch('https://appleid.apple.com/auth/keys');
+      if (!response.ok) {
+        throw new Error(`Apple keys endpoint returned ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data.keys || !Array.isArray(data.keys)) {
+        throw new Error('Invalid response from Apple keys endpoint');
+      }
+      this.applePublicKeys = data.keys;
+    } catch (error) {
+      this.logger.error('Failed to fetch Apple public keys:', error);
+      throw new ServiceUnavailableException('Unable to verify Apple tokens at this time');
+    }
+
     // Refresh keys every hour
     setTimeout(() => {
       this.applePublicKeys = null;
@@ -191,7 +211,7 @@ export class SSOService {
   // HELPERS
   // =========================================================================
 
-  private async verifyJWT(token: string, jwk: any): Promise<any> {
+  private async verifyJWT(token: string, jwk: AppleJWK): Promise<AppleTokenPayload> {
     const [headerB64, payloadB64, signatureB64] = token.split('.');
     
     // Import the JWK
@@ -218,11 +238,7 @@ export class SSOService {
     return JSON.parse(Buffer.from(payloadB64, 'base64').toString());
   }
 
-  private async jwkToCryptoKey(jwk: any): Promise<string> {
-    // Convert JWK to PEM format
-    const n = Buffer.from(jwk.n, 'base64');
-    const e = Buffer.from(jwk.e, 'base64');
-
+  private async jwkToCryptoKey(jwk: AppleJWK): Promise<string> {
     // Create RSA public key from components
     const key = crypto.createPublicKey({
       key: {

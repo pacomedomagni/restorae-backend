@@ -8,12 +8,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { SubscriptionTier } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { UpdateTierDto, GrantPremiumDto } from '../dto/admin-subscriptions.dto';
 
 @ApiTags('admin/subscriptions')
 @Controller('admin/subscriptions')
@@ -25,6 +26,8 @@ export class AdminSubscriptionsController {
 
   @Get()
   @ApiOperation({ summary: 'List subscriptions' })
+  @ApiResponse({ status: 200, description: 'Subscriptions retrieved' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async list(
     @Query('tier') tier?: SubscriptionTier,
     @Query('limit') limit = 50,
@@ -46,6 +49,7 @@ export class AdminSubscriptionsController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Get subscription stats' })
+  @ApiResponse({ status: 200, description: 'Stats retrieved' })
   async getStats() {
     const [total, free, premium, lifetime, trialing] = await Promise.all([
       this.prisma.subscription.count(),
@@ -67,9 +71,11 @@ export class AdminSubscriptionsController {
 
   @Patch(':userId/tier')
   @ApiOperation({ summary: 'Update subscription tier' })
+  @ApiResponse({ status: 200, description: 'Tier updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async updateTier(
     @Param('userId') userId: string,
-    @Body() body: { tier: SubscriptionTier },
+    @Body() body: UpdateTierDto,
   ) {
     return this.prisma.subscription.update({
       where: { userId },
@@ -82,9 +88,11 @@ export class AdminSubscriptionsController {
 
   @Post(':userId/grant-premium')
   @ApiOperation({ summary: 'Grant premium (admin)' })
+  @ApiResponse({ status: 201, description: 'Premium granted' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async grantPremium(
     @Param('userId') userId: string,
-    @Body() body: { durationDays?: number },
+    @Body() body: GrantPremiumDto,
   ) {
     const expiresAt = body.durationDays
       ? new Date(Date.now() + body.durationDays * 24 * 60 * 60 * 1000)
@@ -102,6 +110,8 @@ export class AdminSubscriptionsController {
 
   @Post(':userId/revoke-premium')
   @ApiOperation({ summary: 'Revoke premium' })
+  @ApiResponse({ status: 201, description: 'Premium revoked' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async revokePremium(@Param('userId') userId: string) {
     return this.prisma.subscription.update({
       where: { userId },
@@ -115,6 +125,8 @@ export class AdminSubscriptionsController {
 
   @Post(':userId/grant-lifetime')
   @ApiOperation({ summary: 'Grant lifetime' })
+  @ApiResponse({ status: 201, description: 'Lifetime granted' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async grantLifetime(@Param('userId') userId: string) {
     return this.prisma.subscription.update({
       where: { userId },

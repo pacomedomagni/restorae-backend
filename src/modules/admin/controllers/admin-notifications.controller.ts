@@ -9,13 +9,15 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { CreateCampaignDto, UpdateCampaignDto, SendTestNotificationDto, CreateSegmentDto, UpdateSegmentDto } from '../dto/admin-notifications.dto';
 
 @ApiTags('admin/notifications')
 @Controller('admin/notifications')
@@ -30,6 +32,8 @@ export class AdminNotificationsController {
 
   @Get('campaigns')
   @ApiOperation({ summary: 'List notification campaigns' })
+  @ApiResponse({ status: 200, description: 'Campaigns retrieved' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async listCampaigns(
     @Query('limit') limit = 50,
     @Query('offset') offset = 0,
@@ -53,6 +57,8 @@ export class AdminNotificationsController {
 
   @Get('campaigns/:id')
   @ApiOperation({ summary: 'Get campaign details' })
+  @ApiResponse({ status: 200, description: 'Campaign retrieved' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async getCampaign(@Param('id') id: string) {
     const campaign = await this.prisma.notificationCampaign.findUnique({
       where: { id },
@@ -77,23 +83,17 @@ export class AdminNotificationsController {
 
   @Post('campaigns')
   @ApiOperation({ summary: 'Create notification campaign' })
+  @ApiResponse({ status: 201, description: 'Campaign created' })
   async createCampaign(
-    @CurrentUser() admin: any,
-    @Body() body: {
-      title: string;
-      body: string;
-      segmentId?: string;
-      scheduledFor?: string;
-      timezone?: string;
-      data?: Record<string, any>;
-    },
+    @CurrentUser() admin: { id: string },
+    @Body() body: CreateCampaignDto,
   ) {
     const campaign = await this.prisma.notificationCampaign.create({
       data: {
         title: body.title,
         body: body.body,
         segmentId: body.segmentId,
-        data: body.data,
+        data: body.data as Prisma.InputJsonValue,
         scheduledFor: body.scheduledFor ? new Date(body.scheduledFor) : null,
         timezone: body.timezone,
         createdBy: admin.id,
@@ -105,6 +105,8 @@ export class AdminNotificationsController {
 
   @Post('campaigns/:id/send')
   @ApiOperation({ summary: 'Send campaign immediately' })
+  @ApiResponse({ status: 201, description: 'Campaign sent' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async sendCampaign(
     @Param('id') id: string,
   ) {
@@ -122,7 +124,7 @@ export class AdminNotificationsController {
     
     if (campaign.segment) {
       // Parse segment rules and get matching users
-      const rules = campaign.segment.rules as any;
+      const rules = campaign.segment.rules as Record<string, unknown>;
       userIds = await this.getUsersFromSegment(rules);
     } else {
       // Send to all users with push tokens
@@ -142,7 +144,7 @@ export class AdminNotificationsController {
           userId,
           campaign.title,
           campaign.body,
-          campaign.data as Record<string, any> || {},
+          (campaign.data as Record<string, string>) || {},
         );
         
         // Create log entry
@@ -185,9 +187,9 @@ export class AdminNotificationsController {
     return { success: true, sentCount, totalTargeted: userIds.length };
   }
 
-  private async getUsersFromSegment(rules: any): Promise<string[]> {
+  private async getUsersFromSegment(rules: Record<string, unknown>): Promise<string[]> {
     // Parse segment rules to build Prisma query
-    const where: any = { isActive: true };
+    const where: Record<string, unknown> = { isActive: true };
     
     if (rules.subscriptionTier) {
       where.subscription = { tier: rules.subscriptionTier };
@@ -195,7 +197,7 @@ export class AdminNotificationsController {
     
     if (rules.inactiveDays) {
       const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - rules.inactiveDays);
+      cutoff.setDate(cutoff.getDate() - Number(rules.inactiveDays));
       where.updatedAt = { lt: cutoff };
     }
     
@@ -213,15 +215,11 @@ export class AdminNotificationsController {
 
   @Patch('campaigns/:id')
   @ApiOperation({ summary: 'Update campaign' })
+  @ApiResponse({ status: 200, description: 'Campaign updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async updateCampaign(
     @Param('id') id: string,
-    @Body() body: Partial<{
-      title: string;
-      body: string;
-      segmentId: string;
-      scheduledFor: string;
-      timezone: string;
-    }>,
+    @Body() body: UpdateCampaignDto,
   ) {
     return this.prisma.notificationCampaign.update({
       where: { id },
@@ -234,6 +232,8 @@ export class AdminNotificationsController {
 
   @Delete('campaigns/:id')
   @ApiOperation({ summary: 'Delete campaign' })
+  @ApiResponse({ status: 200, description: 'Campaign deleted' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async deleteCampaign(@Param('id') id: string) {
     // Delete associated logs first
     await this.prisma.notificationLog.deleteMany({
@@ -247,6 +247,7 @@ export class AdminNotificationsController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Get notification stats' })
+  @ApiResponse({ status: 200, description: 'Stats retrieved' })
   async getStats() {
     const [totalSent, totalDelivered, totalOpened, recentCampaigns] = await Promise.all([
       this.prisma.notificationLog.count({ where: { status: 'SENT' } }),
@@ -276,8 +277,9 @@ export class AdminNotificationsController {
 
   @Post('send-test')
   @ApiOperation({ summary: 'Send test notification' })
+  @ApiResponse({ status: 201, description: 'Test notification sent' })
   async sendTest(
-    @Body() body: { userId: string; title: string; body: string },
+    @Body() body: SendTestNotificationDto,
   ) {
     await this.notificationsService.sendToUser(
       body.userId,
@@ -295,6 +297,7 @@ export class AdminNotificationsController {
 
   @Get('segments')
   @ApiOperation({ summary: 'List segments' })
+  @ApiResponse({ status: 200, description: 'Segments retrieved' })
   async listSegments() {
     return this.prisma.segment.findMany({
       orderBy: { name: 'asc' },
@@ -308,36 +311,33 @@ export class AdminNotificationsController {
 
   @Post('segments')
   @ApiOperation({ summary: 'Create segment' })
+  @ApiResponse({ status: 201, description: 'Segment created' })
   async createSegment(
-    @Body() body: {
-      name: string;
-      description?: string;
-      rules: Record<string, any>;
-    },
+    @Body() body: CreateSegmentDto,
   ) {
     return this.prisma.segment.create({
-      data: body,
+      data: body as unknown as Prisma.SegmentCreateInput,
     });
   }
 
   @Patch('segments/:id')
   @ApiOperation({ summary: 'Update segment' })
+  @ApiResponse({ status: 200, description: 'Segment updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async updateSegment(
     @Param('id') id: string,
-    @Body() body: Partial<{
-      name: string;
-      description: string;
-      rules: Record<string, any>;
-    }>,
+    @Body() body: UpdateSegmentDto,
   ) {
     return this.prisma.segment.update({
       where: { id },
-      data: body,
+      data: body as unknown as Prisma.SegmentUpdateInput,
     });
   }
 
   @Delete('segments/:id')
   @ApiOperation({ summary: 'Delete segment' })
+  @ApiResponse({ status: 200, description: 'Segment deleted' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async deleteSegment(@Param('id') id: string) {
     return this.prisma.segment.delete({
       where: { id },
@@ -346,6 +346,8 @@ export class AdminNotificationsController {
 
   @Get('segments/:id/preview')
   @ApiOperation({ summary: 'Preview segment users count' })
+  @ApiResponse({ status: 200, description: 'Segment preview retrieved' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async previewSegment(@Param('id') id: string) {
     const segment = await this.prisma.segment.findUnique({
       where: { id },
@@ -355,7 +357,7 @@ export class AdminNotificationsController {
       return { error: 'Segment not found' };
     }
 
-    const userIds = await this.getUsersFromSegment(segment.rules as any);
+    const userIds = await this.getUsersFromSegment(segment.rules as Record<string, unknown>);
     return { count: userIds.length };
   }
 }

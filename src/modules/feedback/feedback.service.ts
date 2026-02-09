@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { FeedbackType } from '@prisma/client';
+import { FeedbackType, FeedbackStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -11,7 +12,7 @@ export class FeedbackService {
     subject?: string;
     message: string;
     email?: string;
-    deviceInfo?: any;
+    deviceInfo?: Prisma.InputJsonValue;
   }) {
     return this.prisma.feedback.create({
       data: {
@@ -32,10 +33,10 @@ export class FeedbackService {
     });
   }
 
-  async updateStatus(id: string, status: string) {
+  async updateStatus(id: string, status: FeedbackStatus) {
     return this.prisma.feedback.update({
       where: { id },
-      data: { status: status as any },
+      data: { status },
     });
   }
 

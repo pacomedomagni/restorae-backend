@@ -9,12 +9,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { MoodService } from './mood.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateMoodEntryDto } from './dto/create-mood-entry.dto';
 import { UpdateMoodEntryDto } from './dto/update-mood-entry.dto';
+import { UserPayload } from '../../common/types/user-payload.interface';
+import {
+  MoodEntryResponseDto,
+  MoodStatsResponseDto,
+  WeeklyGoalResponseDto,
+} from '../../common/dto/responses.dto';
 
 @ApiTags('mood')
 @Controller('mood')
@@ -25,16 +31,18 @@ export class MoodController {
 
   @Post()
   @ApiOperation({ summary: 'Create mood entry' })
-  create(@CurrentUser() user: any, @Body() dto: CreateMoodEntryDto) {
+  @ApiResponse({ status: 201, description: 'Mood entry created', type: MoodEntryResponseDto })
+  create(@CurrentUser() user: UserPayload, @Body() dto: CreateMoodEntryDto) {
     return this.moodService.create(user.id, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all mood entries' })
+  @ApiResponse({ status: 200, description: 'Mood entries', type: [MoodEntryResponseDto] })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'offset', required: false })
   findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Query('limit') limit = 100,
     @Query('offset') offset = 0,
   ) {
@@ -43,20 +51,23 @@ export class MoodController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Get mood statistics' })
-  getStats(@CurrentUser() user: any) {
+  @ApiResponse({ status: 200, description: 'Mood statistics', type: MoodStatsResponseDto })
+  getStats(@CurrentUser() user: UserPayload) {
     return this.moodService.getStats(user.id);
   }
 
   @Get('goal')
   @ApiOperation({ summary: 'Get weekly goal' })
-  getWeeklyGoal(@CurrentUser() user: any) {
+  @ApiResponse({ status: 200, description: 'Weekly goal', type: WeeklyGoalResponseDto })
+  getWeeklyGoal(@CurrentUser() user: UserPayload) {
     return this.moodService.getWeeklyGoal(user.id);
   }
 
   @Patch('goal')
   @ApiOperation({ summary: 'Set weekly goal target' })
+  @ApiResponse({ status: 200, description: 'Goal updated', type: WeeklyGoalResponseDto })
   setWeeklyGoalTarget(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Body('targetDays') targetDays: number,
   ) {
     return this.moodService.setWeeklyGoalTarget(user.id, targetDays);
@@ -64,10 +75,11 @@ export class MoodController {
 
   @Get('range')
   @ApiOperation({ summary: 'Get entries by date range' })
+  @ApiResponse({ status: 200, description: 'Mood entries in range', type: [MoodEntryResponseDto] })
   @ApiQuery({ name: 'start', required: true })
   @ApiQuery({ name: 'end', required: true })
   findByRange(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Query('start') start: string,
     @Query('end') end: string,
   ) {
@@ -76,14 +88,17 @@ export class MoodController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get mood entry by ID' })
-  findOne(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Mood entry', type: MoodEntryResponseDto })
+  @ApiResponse({ status: 404, description: 'Mood entry not found' })
+  findOne(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.moodService.findOne(user.id, id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update mood entry' })
+  @ApiResponse({ status: 200, description: 'Mood entry updated', type: MoodEntryResponseDto })
   update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Param('id') id: string,
     @Body() dto: UpdateMoodEntryDto,
   ) {
@@ -92,7 +107,8 @@ export class MoodController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete mood entry' })
-  delete(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Mood entry deleted' })
+  delete(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.moodService.delete(user.id, id);
   }
 }

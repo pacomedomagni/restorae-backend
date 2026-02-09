@@ -7,12 +7,14 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { CreateFeatureFlagDto, UpdateFeatureFlagDto, UpdateLegalContentDto, UpdateAppVersionsDto, UpdateMaintenanceDto } from '../dto/admin-settings.dto';
 
 @ApiTags('admin/settings')
 @Controller('admin/settings')
@@ -28,6 +30,8 @@ export class AdminSettingsController {
 
   @Get('features')
   @ApiOperation({ summary: 'Get all feature flags' })
+  @ApiResponse({ status: 200, description: 'Feature flags retrieved' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async getFeatureFlags() {
     return this.prisma.featureFlag.findMany({
       orderBy: { key: 'asc' },
@@ -36,14 +40,9 @@ export class AdminSettingsController {
 
   @Post('features')
   @ApiOperation({ summary: 'Create feature flag' })
+  @ApiResponse({ status: 201, description: 'Feature flag created' })
   async createFeatureFlag(
-    @Body() body: {
-      key: string;
-      name: string;
-      description?: string;
-      enabled: boolean;
-      rules?: any;
-    },
+    @Body() body: CreateFeatureFlagDto,
   ) {
     return this.prisma.featureFlag.create({
       data: {
@@ -51,25 +50,22 @@ export class AdminSettingsController {
         name: body.name,
         description: body.description,
         enabled: body.enabled,
-        rules: body.rules,
+        rules: body.rules as Prisma.InputJsonValue,
       },
     });
   }
 
   @Patch('features/:key')
   @ApiOperation({ summary: 'Update feature flag' })
+  @ApiResponse({ status: 200, description: 'Feature flag updated' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async updateFeatureFlag(
     @Param('key') key: string,
-    @Body() body: Partial<{
-      name: string;
-      description: string;
-      enabled: boolean;
-      rules: any;
-    }>,
+    @Body() body: UpdateFeatureFlagDto,
   ) {
     return this.prisma.featureFlag.update({
       where: { key },
-      data: body,
+      data: body as unknown as Prisma.FeatureFlagUpdateInput,
     });
   }
 
@@ -79,6 +75,7 @@ export class AdminSettingsController {
 
   @Get('config')
   @ApiOperation({ summary: 'Get system configuration' })
+  @ApiResponse({ status: 200, description: 'Config retrieved' })
   async getSystemConfig() {
     const configs = await this.prisma.systemConfig.findMany({
       orderBy: { key: 'asc' },
@@ -93,8 +90,9 @@ export class AdminSettingsController {
 
   @Patch('config')
   @ApiOperation({ summary: 'Update system configuration' })
+  @ApiResponse({ status: 200, description: 'Config updated' })
   async updateSystemConfig(
-    @CurrentUser() admin: any,
+    @CurrentUser() admin: { id: string },
     @Body() body: Record<string, any>,
   ) {
     const updates = await Promise.all(
@@ -132,6 +130,7 @@ export class AdminSettingsController {
 
   @Get('legal')
   @ApiOperation({ summary: 'Get legal content' })
+  @ApiResponse({ status: 200, description: 'Legal content retrieved' })
   async getLegalContent() {
     const [termsOfService, privacyPolicy] = await Promise.all([
       this.prisma.systemConfig.findUnique({ where: { key: 'terms_of_service' } }),
@@ -146,9 +145,10 @@ export class AdminSettingsController {
 
   @Patch('legal')
   @ApiOperation({ summary: 'Update legal content' })
+  @ApiResponse({ status: 200, description: 'Legal content updated' })
   async updateLegalContent(
-    @CurrentUser() admin: any,
-    @Body() body: { termsOfService?: string; privacyPolicy?: string },
+    @CurrentUser() admin: { id: string },
+    @Body() body: UpdateLegalContentDto,
   ) {
     const updates = [];
 
@@ -193,6 +193,7 @@ export class AdminSettingsController {
 
   @Get('audit-logs')
   @ApiOperation({ summary: 'Get audit logs' })
+  @ApiResponse({ status: 200, description: 'Audit logs retrieved' })
   async getAuditLogs(
     @Param('limit') limit = 100,
     @Param('offset') offset = 0,
@@ -220,6 +221,7 @@ export class AdminSettingsController {
 
   @Get('app-versions')
   @ApiOperation({ summary: 'Get app version requirements' })
+  @ApiResponse({ status: 200, description: 'App versions retrieved' })
   async getAppVersions() {
     const [minIOSVersion, minAndroidVersion, currentVersion] = await Promise.all([
       this.prisma.systemConfig.findUnique({ where: { key: 'min_ios_version' } }),
@@ -236,13 +238,10 @@ export class AdminSettingsController {
 
   @Patch('app-versions')
   @ApiOperation({ summary: 'Update app version requirements' })
+  @ApiResponse({ status: 200, description: 'App versions updated' })
   async updateAppVersions(
-    @CurrentUser() admin: any,
-    @Body() body: {
-      minIOSVersion?: string;
-      minAndroidVersion?: string;
-      currentVersion?: string;
-    },
+    @CurrentUser() admin: { id: string },
+    @Body() body: UpdateAppVersionsDto,
   ) {
     const updates = [];
 
@@ -283,7 +282,7 @@ export class AdminSettingsController {
       data: {
         action: 'UPDATE_APP_VERSIONS',
         resource: 'SYSTEM_CONFIG',
-        newValue: body,
+        newValue: body as unknown as Prisma.InputJsonValue,
         adminId: admin.id,
       },
     });
@@ -297,6 +296,7 @@ export class AdminSettingsController {
 
   @Get('maintenance')
   @ApiOperation({ summary: 'Get maintenance status' })
+  @ApiResponse({ status: 200, description: 'Maintenance status retrieved' })
   async getMaintenanceStatus() {
     const [enabled, message, scheduledEnd] = await Promise.all([
       this.prisma.systemConfig.findUnique({ where: { key: 'maintenance_enabled' } }),
@@ -313,13 +313,10 @@ export class AdminSettingsController {
 
   @Patch('maintenance')
   @ApiOperation({ summary: 'Update maintenance status' })
+  @ApiResponse({ status: 200, description: 'Maintenance updated' })
   async updateMaintenanceStatus(
-    @CurrentUser() admin: any,
-    @Body() body: {
-      enabled: boolean;
-      message?: string;
-      scheduledEnd?: string;
-    },
+    @CurrentUser() admin: { id: string },
+    @Body() body: UpdateMaintenanceDto,
   ) {
     await Promise.all([
       this.prisma.systemConfig.upsert({
@@ -344,7 +341,7 @@ export class AdminSettingsController {
       data: {
         action: body.enabled ? 'ENABLE_MAINTENANCE' : 'DISABLE_MAINTENANCE',
         resource: 'SYSTEM_CONFIG',
-        newValue: body,
+        newValue: body as unknown as Prisma.InputJsonValue,
         adminId: admin.id,
       },
     });

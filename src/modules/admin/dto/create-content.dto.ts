@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, IsArray, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, IsArray, IsObject, IsNotEmpty, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ContentType, ContentStatus } from '@prisma/client';
 
@@ -9,15 +10,21 @@ export class CreateContentDto {
 
   @ApiProperty({ example: 'box-breathing' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
   slug: string;
 
   @ApiProperty({ example: 'Box Breathing' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  @Transform(({ value }) => value?.trim())
   name: string;
 
   @ApiPropertyOptional({ example: 'A calming breathing technique' })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @ApiPropertyOptional({ example: { steps: [], duration: 300 } })
@@ -28,17 +35,20 @@ export class CreateContentDto {
   @ApiPropertyOptional({ example: 'relaxation' })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   category?: string;
 
   @ApiPropertyOptional({ example: ['calm', 'stress'] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
   tags?: string[];
 
   @ApiPropertyOptional({ example: 'anxiety relief' })
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   bestFor?: string;
 
   @ApiPropertyOptional({ example: 300 })
@@ -49,6 +59,7 @@ export class CreateContentDto {
   @ApiPropertyOptional({ example: 'breathing-icon' })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   icon?: string;
 
   @ApiPropertyOptional({ example: false })

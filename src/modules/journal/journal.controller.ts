@@ -9,12 +9,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { JournalService } from './journal.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateJournalEntryDto } from './dto/create-journal-entry.dto';
 import { UpdateJournalEntryDto } from './dto/update-journal-entry.dto';
+import { UserPayload } from '../../common/types/user-payload.interface';
+import { JournalEntryResponseDto } from '../../common/dto/responses.dto';
 
 @ApiTags('journal')
 @Controller('journal')
@@ -25,16 +27,18 @@ export class JournalController {
 
   @Post()
   @ApiOperation({ summary: 'Create journal entry' })
-  create(@CurrentUser() user: any, @Body() dto: CreateJournalEntryDto) {
+  @ApiResponse({ status: 201, description: 'Journal entry created', type: JournalEntryResponseDto })
+  create(@CurrentUser() user: UserPayload, @Body() dto: CreateJournalEntryDto) {
     return this.journalService.create(user.id, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all journal entries' })
+  @ApiResponse({ status: 200, description: 'Journal entries', type: [JournalEntryResponseDto] })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'offset', required: false })
   findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Query('limit') limit = 50,
     @Query('offset') offset = 0,
   ) {
@@ -43,46 +47,54 @@ export class JournalController {
 
   @Get('search')
   @ApiOperation({ summary: 'Search journal entries' })
+  @ApiResponse({ status: 200, description: 'Search results', type: [JournalEntryResponseDto] })
   @ApiQuery({ name: 'q', required: true })
-  search(@CurrentUser() user: any, @Query('q') query: string) {
+  search(@CurrentUser() user: UserPayload, @Query('q') query: string) {
     return this.journalService.search(user.id, query);
   }
 
   @Get('recent')
   @ApiOperation({ summary: 'Get recent entries' })
+  @ApiResponse({ status: 200, description: 'Recent entries', type: [JournalEntryResponseDto] })
   @ApiQuery({ name: 'limit', required: false })
-  getRecent(@CurrentUser() user: any, @Query('limit') limit = 10) {
+  getRecent(@CurrentUser() user: UserPayload, @Query('limit') limit = 10) {
     return this.journalService.getRecentEntries(user.id, limit);
   }
 
   @Get('deleted')
   @ApiOperation({ summary: 'Get deleted entries (recoverable)' })
-  getDeleted(@CurrentUser() user: any) {
+  @ApiResponse({ status: 200, description: 'Deleted entries', type: [JournalEntryResponseDto] })
+  getDeleted(@CurrentUser() user: UserPayload) {
     return this.journalService.getDeleted(user.id);
   }
 
   @Get('tag/:tag')
   @ApiOperation({ summary: 'Get entries by tag' })
-  findByTag(@CurrentUser() user: any, @Param('tag') tag: string) {
+  @ApiResponse({ status: 200, description: 'Entries by tag', type: [JournalEntryResponseDto] })
+  findByTag(@CurrentUser() user: UserPayload, @Param('tag') tag: string) {
     return this.journalService.findByTag(user.id, tag);
   }
 
   @Get('mood/:moodId')
   @ApiOperation({ summary: 'Get entries by mood' })
-  findByMood(@CurrentUser() user: any, @Param('moodId') moodId: string) {
+  @ApiResponse({ status: 200, description: 'Entries by mood', type: [JournalEntryResponseDto] })
+  findByMood(@CurrentUser() user: UserPayload, @Param('moodId') moodId: string) {
     return this.journalService.findByMood(user.id, moodId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get journal entry by ID' })
-  findOne(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Journal entry', type: JournalEntryResponseDto })
+  @ApiResponse({ status: 404, description: 'Entry not found' })
+  findOne(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.journalService.findOne(user.id, id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update journal entry' })
+  @ApiResponse({ status: 200, description: 'Entry updated', type: JournalEntryResponseDto })
   update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: UserPayload,
     @Param('id') id: string,
     @Body() dto: UpdateJournalEntryDto,
   ) {
@@ -91,19 +103,22 @@ export class JournalController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Soft delete journal entry' })
-  delete(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Entry soft deleted' })
+  delete(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.journalService.delete(user.id, id);
   }
 
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore deleted entry' })
-  restore(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Entry restored', type: JournalEntryResponseDto })
+  restore(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.journalService.restore(user.id, id);
   }
 
   @Delete(':id/permanent')
   @ApiOperation({ summary: 'Permanently delete entry' })
-  permanentDelete(@CurrentUser() user: any, @Param('id') id: string) {
+  @ApiResponse({ status: 200, description: 'Entry permanently deleted' })
+  permanentDelete(@CurrentUser() user: UserPayload, @Param('id') id: string) {
     return this.journalService.permanentDelete(user.id, id);
   }
 }

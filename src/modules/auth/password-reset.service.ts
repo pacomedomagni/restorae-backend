@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../../common/email/email.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -14,6 +15,7 @@ export class PasswordResetService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {
     this.appUrl = this.configService.get<string>('APP_URL') || 'https://app.restorae.com';
     this.fromEmail = this.configService.get<string>('FROM_EMAIL') || 'noreply@restorae.com';
@@ -46,8 +48,12 @@ export class PasswordResetService {
       },
     });
 
-    // Send email
-    await this.sendResetEmail(user.email!, user.name || 'there', token);
+    // Send email (non-blocking: token is saved even if email fails)
+    try {
+      await this.sendResetEmail(user.email!, user.name || 'there', token);
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+    }
 
     this.logger.log(`Password reset requested for ${email}`);
 
@@ -118,8 +124,12 @@ export class PasswordResetService {
 
     this.logger.log(`Password reset completed for user ${user.id}`);
 
-    // Send confirmation email
-    await this.sendPasswordChangedEmail(user.email!, user.name || 'there');
+    // Send confirmation email (non-blocking: reset already succeeded)
+    try {
+      await this.sendPasswordChangedEmail(user.email!, user.name || 'there');
+    } catch (error) {
+      this.logger.error(`Failed to send password changed confirmation email to user ${user.id}:`, error);
+    }
 
     return { message: 'Password reset successful. Please log in with your new password.' };
   }
@@ -159,16 +169,20 @@ export class PasswordResetService {
       data: { passwordHash },
     });
 
-    // Send confirmation email
+    // Send confirmation email (non-blocking: password change already succeeded)
     if (user.email) {
-      await this.sendPasswordChangedEmail(user.email, user.name || 'there');
+      try {
+        await this.sendPasswordChangedEmail(user.email, user.name || 'there');
+      } catch (error) {
+        this.logger.error(`Failed to send password changed confirmation email to user ${userId}:`, error);
+      }
     }
 
     return { message: 'Password changed successfully' };
   }
 
   // =========================================================================
-  // EMAIL SENDING (Replace with actual email service like SendGrid, SES, etc.)
+  // EMAIL SENDING
   // =========================================================================
 
   private async sendResetEmail(email: string, name: string, token: string): Promise<void> {
@@ -215,12 +229,7 @@ export class PasswordResetService {
       `,
     };
 
-    // In production, integrate with email service
-    // await this.emailService.send(emailContent);
-    
-    // For now, log the email
-    this.logger.log(`Password reset email would be sent to ${email}`);
-    this.logger.debug(`Reset URL: ${resetUrl}`);
+    await this.emailService.send(emailContent);
   }
 
   private async sendPasswordChangedEmail(email: string, name: string): Promise<void> {
@@ -258,9 +267,6 @@ export class PasswordResetService {
       `,
     };
 
-    // In production, integrate with email service
-    // await this.emailService.send(emailContent);
-    
-    this.logger.log(`Password changed email would be sent to ${email}`);
+    await this.emailService.send(emailContent);
   }
 }

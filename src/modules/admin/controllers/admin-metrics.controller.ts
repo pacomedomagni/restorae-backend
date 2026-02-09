@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { MetricsService } from '../../../common/health/metrics.service';
 import { AlertService, AlertThreshold, ActiveAlert } from '../../../common/health/alert.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -19,6 +19,7 @@ export class AdminMetricsController {
   @Get()
   @Roles('ADMIN', 'ANALYST')
   @ApiOperation({ summary: 'Get all system metrics' })
+  @ApiResponse({ status: 200, description: 'System metrics retrieved' })
   async getMetrics() {
     const metrics = this.metricsService.getMetrics();
     const alertStatus = this.alertService.getStatus();
@@ -32,6 +33,7 @@ export class AdminMetricsController {
   @Get('summary')
   @Roles('ADMIN', 'ANALYST')
   @ApiOperation({ summary: 'Get metrics summary for dashboard' })
+  @ApiResponse({ status: 200, description: 'Metrics summary retrieved' })
   async getMetricsSummary() {
     const metrics = this.metricsService.getMetrics();
     const alertStatus = this.alertService.getStatus();
@@ -110,6 +112,7 @@ export class AdminMetricsController {
   @Get('alerts')
   @Roles('ADMIN', 'ANALYST')
   @ApiOperation({ summary: 'Get active alerts' })
+  @ApiResponse({ status: 200, description: 'Active alerts retrieved' })
   async getActiveAlerts() {
     return {
       status: this.alertService.getStatus(),
@@ -120,6 +123,7 @@ export class AdminMetricsController {
   @Get('alerts/history')
   @Roles('ADMIN', 'ANALYST')
   @ApiOperation({ summary: 'Get alert history' })
+  @ApiResponse({ status: 200, description: 'Alert history retrieved' })
   async getAlertHistory() {
     return {
       history: this.alertService.getAlertHistory(100),
@@ -129,6 +133,7 @@ export class AdminMetricsController {
   @Get('alerts/thresholds')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Get alert thresholds configuration' })
+  @ApiResponse({ status: 200, description: 'Thresholds retrieved' })
   async getAlertThresholds() {
     return {
       thresholds: this.alertService.getThresholds(),
@@ -138,6 +143,7 @@ export class AdminMetricsController {
   @Post('alerts/thresholds')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Add new alert threshold' })
+  @ApiResponse({ status: 201, description: 'Threshold created' })
   async addAlertThreshold(@Body() threshold: AlertThreshold) {
     this.alertService.addThreshold(threshold);
     return { success: true, thresholds: this.alertService.getThresholds() };
@@ -146,6 +152,8 @@ export class AdminMetricsController {
   @Delete('alerts/thresholds/:name')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Remove alert threshold' })
+  @ApiResponse({ status: 200, description: 'Threshold removed' })
+  @ApiResponse({ status: 404, description: 'Not found' })
   async removeAlertThreshold(@Param('name') name: string) {
     const removed = this.alertService.removeThreshold(name);
     return { success: removed, thresholds: this.alertService.getThresholds() };

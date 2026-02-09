@@ -183,7 +183,7 @@ export class NotificationsService {
           title,
           body,
           scheduledFor,
-          data: data as any,
+          data: (data ?? undefined) as Record<string, string> | undefined,
           createdBy: options.userId || 'system',
         },
       });
@@ -196,7 +196,7 @@ export class NotificationsService {
     }
 
     // Build user query based on target
-    const userWhere: any = { isActive: true };
+    const userWhere: Record<string, unknown> = { isActive: true };
 
     switch (target) {
       case 'premium':
@@ -250,7 +250,7 @@ export class NotificationsService {
       data: {
         title,
         body,
-        data: data as any,
+        data: (data ?? undefined) as Record<string, string> | undefined,
         createdBy: options.userId || 'system',
       },
     });

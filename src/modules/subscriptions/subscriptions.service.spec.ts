@@ -790,7 +790,7 @@ describe('SubscriptionsService', () => {
         type: 'PRODUCT_CHANGE',
         app_user_id: appUserId,
         product_id: 'com.restorae.premium.yearly',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(result).toEqual({ received: true, processed: true });
@@ -811,7 +811,7 @@ describe('SubscriptionsService', () => {
         type: 'CANCELLATION',
         app_user_id: appUserId,
         product_id: 'com.restorae.premium.monthly',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(result).toEqual({ received: true, processed: true });
@@ -830,7 +830,7 @@ describe('SubscriptionsService', () => {
         type: 'UNCANCELLATION',
         app_user_id: appUserId,
         product_id: 'com.restorae.premium.monthly',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(result).toEqual({ received: true, processed: true });
@@ -849,7 +849,7 @@ describe('SubscriptionsService', () => {
         type: 'EXPIRATION',
         app_user_id: appUserId,
         product_id: 'com.restorae.premium.monthly',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(result).toEqual({ received: true, processed: true });
@@ -869,7 +869,7 @@ describe('SubscriptionsService', () => {
         type: 'BILLING_ISSUE',
         app_user_id: appUserId,
         product_id: 'com.restorae.premium.monthly',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(result).toEqual({ received: true, processed: true });
@@ -889,7 +889,7 @@ describe('SubscriptionsService', () => {
         type: 'NON_RENEWING_PURCHASE',
         app_user_id: appUserId,
         product_id: 'com.restorae.premium.lifetime',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(result).toEqual({ received: true, processed: true });
@@ -910,7 +910,7 @@ describe('SubscriptionsService', () => {
         type: 'INITIAL_PURCHASE',
         app_user_id: 'unknown-user',
         product_id: 'com.restorae.premium.monthly',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(result).toEqual({ received: true, processed: false });
@@ -925,7 +925,7 @@ describe('SubscriptionsService', () => {
         type: 'INITIAL_PURCHASE',
         app_user_id: appUserId,
         product_id: 'com.restorae.premium.monthly',
-        expiration_at_ms: null,
+        expiration_at_ms: undefined,
       });
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith({

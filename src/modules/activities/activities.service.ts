@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateActivityLogDto } from './dto/create-activity-log.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, ActivityCategory } from '@prisma/client';
 
 @Injectable()
 export class ActivitiesService {
@@ -13,9 +13,9 @@ export class ActivitiesService {
    * Log a single activity
    */
   async logActivity(userId: string, dto: CreateActivityLogDto) {
-    const category = dto.category.toUpperCase();
-    
-    const activity = await (this.prisma as any).activityLog.create({
+    const category = dto.category.toUpperCase() as ActivityCategory;
+
+    const activity = await this.prisma.activityLog.create({
       data: {
         userId,
         category,
@@ -38,7 +38,7 @@ export class ActivitiesService {
   async logActivitiesBatch(userId: string, activities: CreateActivityLogDto[]) {
     const data = activities.map(dto => ({
       userId,
-      category: dto.category.toUpperCase(),
+      category: dto.category.toUpperCase() as ActivityCategory,
       activityType: dto.activityType,
       activityId: dto.activityId,
       duration: dto.duration,
@@ -47,7 +47,7 @@ export class ActivitiesService {
       timestamp: new Date(dto.timestamp),
     }));
 
-    const result = await (this.prisma as any).activityLog.createMany({
+    const result = await this.prisma.activityLog.createMany({
       data,
       skipDuplicates: true,
     });
@@ -66,7 +66,7 @@ export class ActivitiesService {
 
     // Get today's stats
     const todayStart = this.getStartOfDay(new Date());
-    const todayStats = await (this.prisma as any).activityLog.groupBy({
+    const todayStats = await this.prisma.activityLog.groupBy({
       by: ['category'],
       where: {
         userId,
@@ -78,7 +78,7 @@ export class ActivitiesService {
 
     // Get this week's stats
     const weekStart = this.getStartOfWeek(new Date());
-    const weekStats = await (this.prisma as any).activityLog.groupBy({
+    const weekStats = await this.prisma.activityLog.groupBy({
       by: ['category'],
       where: {
         userId,
@@ -89,7 +89,7 @@ export class ActivitiesService {
     });
 
     // Get all-time stats
-    const allTimeStats = await (this.prisma as any).activityLog.groupBy({
+    const allTimeStats = await this.prisma.activityLog.groupBy({
       by: ['category'],
       where: { userId },
       _count: true,
@@ -98,7 +98,7 @@ export class ActivitiesService {
 
     // Optional: custom date range stats
     const rangeStats = hasRange
-      ? await (this.prisma as any).activityLog.groupBy({
+      ? await this.prisma.activityLog.groupBy({
           by: ['category'],
           where: {
             userId,
@@ -115,7 +115,7 @@ export class ActivitiesService {
     // Get daily breakdown for this week
     const dailyBreakdown = await this.getDailyBreakdown(userId, weekStart);
 
-    const result: any = {
+    const result: Record<string, unknown> = {
       today: this.formatStats(todayStats),
       thisWeek: {
         ...this.formatStats(weekStats),
@@ -148,26 +148,27 @@ export class ActivitiesService {
       endDate?: string;
     },
   ) {
-    const where: any = { userId };
+    const where: Prisma.ActivityLogWhereInput = { userId };
 
     if (params?.category) {
-      where.category = params.category.toUpperCase();
+      where.category = params.category.toUpperCase() as ActivityCategory;
     }
 
     if (params?.startDate || params?.endDate) {
-      where.timestamp = {};
-      if (params.startDate) where.timestamp.gte = new Date(params.startDate);
-      if (params.endDate) where.timestamp.lte = new Date(params.endDate);
+      const timestamp: Prisma.DateTimeFilter = {};
+      if (params.startDate) timestamp.gte = new Date(params.startDate);
+      if (params.endDate) timestamp.lte = new Date(params.endDate);
+      where.timestamp = timestamp;
     }
 
     const [activities, total] = await Promise.all([
-      (this.prisma as any).activityLog.findMany({
+      this.prisma.activityLog.findMany({
         where,
         orderBy: { timestamp: 'desc' },
         take: params?.limit || 50,
         skip: params?.offset || 0,
       }),
-      (this.prisma as any).activityLog.count({ where }),
+      this.prisma.activityLog.count({ where }),
     ]);
 
     return {
@@ -179,7 +180,7 @@ export class ActivitiesService {
   }
 
   // Helper methods
-  private formatStats(stats: any[]) {
+  private formatStats(stats: Array<{ category: string; _count: number; _sum: { duration: number | null } }>) {
     const byCategory: Record<string, number> = {};
     let totalSessions = 0;
     let totalSeconds = 0;
@@ -213,7 +214,7 @@ export class ActivitiesService {
   }
 
   private async getDailyBreakdown(userId: string, startDate: Date): Promise<Record<string, number>> {
-    const activities = await (this.prisma as any).activityLog.findMany({
+    const activities = await this.prisma.activityLog.findMany({
       where: {
         userId,
         timestamp: { gte: startDate },

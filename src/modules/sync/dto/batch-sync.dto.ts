@@ -31,7 +31,7 @@ export class SyncOperationDto {
   entity: SyncEntity;
 
   @IsObject()
-  data: any;
+  data: Record<string, unknown>;
 
   @IsOptional()
   @IsString()

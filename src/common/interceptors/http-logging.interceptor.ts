@@ -1,7 +1,7 @@
 /**
  * HTTP Logging Interceptor
- * 
- * Logs all HTTP requests with timing and tracks metrics.
+ *
+ * Logs all HTTP requests with timing, correlation IDs, and tracks metrics.
  * Lightweight - just uses Pino and in-memory metrics.
  */
 import {
@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { Observable, tap, catchError } from 'rxjs';
 import { Request, Response } from 'express';
+import * as crypto from 'crypto';
 import { LoggerService } from '../logger/logger.service';
 import { MetricsService } from '../health/metrics.service';
 
@@ -26,10 +27,14 @@ export class HttpLoggingInterceptor implements NestInterceptor {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
-    
+
     const { method, url, ip } = request;
-    const userId = (request as any).user?.id;
+    const userId = (request as Request & { user?: { id: string } }).user?.id;
     const startTime = Date.now();
+
+    // Generate or reuse correlation ID from upstream
+    const correlationId = (request.headers['x-request-id'] as string) || crypto.randomUUID();
+    response.setHeader('x-request-id', correlationId);
 
     // Skip logging for health checks to reduce noise
     if (url.startsWith('/health') || url.startsWith('/metrics')) {
@@ -41,8 +46,8 @@ export class HttpLoggingInterceptor implements NestInterceptor {
         const durationMs = Date.now() - startTime;
         const statusCode = response.statusCode;
 
-        // Log the request
-        this.logger.logRequest(method, url, statusCode, durationMs, userId);
+        // Log the request with correlation ID
+        this.logger.logRequest(method, url, statusCode, durationMs, userId, correlationId);
 
         // Track metrics
         this.metrics.httpRequest(method, this.normalizePath(url), statusCode, durationMs);
@@ -51,8 +56,9 @@ export class HttpLoggingInterceptor implements NestInterceptor {
         const durationMs = Date.now() - startTime;
         const statusCode = error.status || 500;
 
-        // Log the error
+        // Log the error with correlation ID
         this.logger.logError(`${method} ${url} ${statusCode}`, error, {
+          correlationId,
           durationMs,
           userId,
           ip,

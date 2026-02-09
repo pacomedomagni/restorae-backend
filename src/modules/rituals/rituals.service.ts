@@ -58,34 +58,37 @@ export class RitualsService {
   async update(userId: string, id: string, dto: UpdateRitualDto) {
     await this.findOne(userId, id);
 
-    // If steps are provided, delete old and create new
-    if (dto.steps) {
-      await this.prisma.ritualStep.deleteMany({
-        where: { ritualId: id },
-      });
-    }
+    // Wrap step deletion and ritual update in a transaction for atomicity
+    return this.prisma.$transaction(async (tx) => {
+      // If steps are provided, delete old and create new
+      if (dto.steps) {
+        await tx.ritualStep.deleteMany({
+          where: { ritualId: id },
+        });
+      }
 
-    return this.prisma.customRitual.update({
-      where: { id },
-      data: {
-        title: dto.title,
-        description: dto.description,
-        timeOfDay: dto.timeOfDay,
-        days: dto.days,
-        reminderEnabled: dto.reminderEnabled,
-        reminderTime: dto.reminderTime,
-        ...(dto.steps && {
-          steps: {
-            create: dto.steps.map((step, index) => ({
-              title: step.title,
-              description: step.description,
-              duration: step.duration,
-              order: index,
-            })),
-          },
-        }),
-      },
-      include: { steps: { orderBy: { order: 'asc' } } },
+      return tx.customRitual.update({
+        where: { id },
+        data: {
+          title: dto.title,
+          description: dto.description,
+          timeOfDay: dto.timeOfDay,
+          days: dto.days,
+          reminderEnabled: dto.reminderEnabled,
+          reminderTime: dto.reminderTime,
+          ...(dto.steps && {
+            steps: {
+              create: dto.steps.map((step, index) => ({
+                title: step.title,
+                description: step.description,
+                duration: step.duration,
+                order: index,
+              })),
+            },
+          }),
+        },
+        include: { steps: { orderBy: { order: 'asc' } } },
+      });
     });
   }
 
@@ -151,25 +154,27 @@ export class RitualsService {
 
   // Completions
   async recordCompletion(userId: string, dto: CreateCompletionDto) {
-    // Update ritual stats
-    await this.prisma.customRitual.update({
-      where: { id: dto.ritualId },
-      data: {
-        completedCount: { increment: 1 },
-        lastCompletedAt: new Date(),
-      },
-    });
+    // Wrap stats update and completion creation in a transaction
+    return this.prisma.$transaction(async (tx) => {
+      await tx.customRitual.update({
+        where: { id: dto.ritualId },
+        data: {
+          completedCount: { increment: 1 },
+          lastCompletedAt: new Date(),
+        },
+      });
 
-    return this.prisma.ritualCompletion.create({
-      data: {
-        userId,
-        ritualId: dto.ritualId,
-        duration: dto.duration,
-        completedSteps: dto.completedSteps,
-        totalSteps: dto.totalSteps,
-        mood: dto.mood,
-        notes: dto.notes,
-      },
+      return tx.ritualCompletion.create({
+        data: {
+          userId,
+          ritualId: dto.ritualId,
+          duration: dto.duration,
+          completedSteps: dto.completedSteps,
+          totalSteps: dto.totalSteps,
+          mood: dto.mood,
+          notes: dto.notes,
+        },
+      });
     });
   }
 

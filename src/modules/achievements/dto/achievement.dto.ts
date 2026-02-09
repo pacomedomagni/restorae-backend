@@ -5,41 +5,57 @@ import {
   IsBoolean,
   IsNumber,
   IsArray,
+  IsNotEmpty,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AchievementCategory, AchievementTier } from '@prisma/client';
 
 export class AchievementLocaleDto {
   @ApiProperty({ example: 'en' })
   @IsString()
+  @MaxLength(10)
   locale: string;
 
   @ApiProperty({ example: 'First Breath' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  @Transform(({ value }) => value?.trim())
   title: string;
 
   @ApiProperty({ example: 'Complete your first breathing session' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   description: string;
 }
 
 export class CreateAchievementDto {
   @ApiProperty({ example: 'first-breath' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
   key: string;
 
   @ApiProperty({ example: 'First Breath' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  @Transform(({ value }) => value?.trim())
   title: string;
 
   @ApiProperty({ example: 'Complete your first breathing session' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   description: string;
 
   @ApiProperty({ example: '🌬️' })
   @IsString()
+  @MaxLength(20)
   icon: string;
 
   @ApiProperty({ enum: AchievementCategory, example: 'SESSION' })
